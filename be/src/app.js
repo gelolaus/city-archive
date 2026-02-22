@@ -11,6 +11,7 @@ import circulationRoutes from './routes/circulationRoutes.js';
 import membersRoutes from './routes/membersRoutes.js';
 import finesRoutes from './routes/finesRoutes.js';
 import bookIngestRoutes from './routes/bookIngestRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use('/api', circulationRoutes);
 app.use('/api/members', membersRoutes);
 app.use('/api/fines', finesRoutes);
 app.use('/api/books', bookIngestRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.use(mysqlErrorHandler);
 
