@@ -8,10 +8,10 @@ router.get('/stats', async (req, res, next) => {
     const [membersRow] = await mysqlPool.query('SELECT COUNT(*) AS count FROM members');
     const [booksRow] = await mysqlPool.query('SELECT COUNT(*) AS count FROM books');
     const [activeLoansRow] = await mysqlPool.query(
-      'SELECT COUNT(*) AS count FROM loans WHERE returned_at IS NULL'
+      'SELECT COUNT(*) AS count FROM loans WHERE return_date IS NULL'
     );
     const [overdueRow] = await mysqlPool.query(
-      'SELECT COUNT(*) AS count FROM loans WHERE returned_at IS NULL AND due_date < CURDATE()'
+      'SELECT COUNT(*) AS count FROM loans WHERE return_date IS NULL AND due_date < CURDATE()'
     );
     const [finesPaidRow] = await mysqlPool.query(
       'SELECT COALESCE(SUM(amount), 0) AS total FROM fines WHERE is_paid = TRUE'
