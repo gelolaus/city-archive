@@ -1,21 +1,30 @@
 import { useState, type FormEvent } from "react";
 import { apiFetch } from "@/api/client";
+import { useAuth } from "@/context/AuthContext";
 
 export default function StaffLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await apiFetch("/api/auth/login/staff", {
+      const data = await apiFetch("/api/auth/login/staff", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+      const staff = data?.staff;
+      if (!staff || typeof staff !== "object" || !("first_name" in staff)) {
+        setError("Invalid response from server.");
+        return;
+      }
+      const token = typeof data?.token === "string" ? data.token : null;
+      login(staff, token);
       window.location.href = "/admin";
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "message" in err ? String((err as { message: string }).message) : "Invalid email or password.";

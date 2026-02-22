@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { apiFetch } from "@/api/client";
+import Navbar from "@/components/Navbar";
 
 interface Book {
   id: number;
@@ -34,7 +35,6 @@ interface BookListPageProps {
   onBack: () => void;
   onSearch: (query: string) => void;
   onSelectBook: (id: number) => void;
-  onLogin: () => void;
 }
 
 export default function BookListPage({
@@ -42,7 +42,6 @@ export default function BookListPage({
   onBack,
   onSearch,
   onSelectBook,
-  onLogin,
 }: BookListPageProps) {
   const [inputValue, setInputValue] = useState(searchQuery);
   const [books, setBooks] = useState<Book[]>([]);
@@ -105,10 +104,8 @@ export default function BookListPage({
       </div>
 
       <div className="relative flex min-h-screen flex-col px-4 pb-24 sm:px-6 lg:px-8">
-        {/* Navbar */}
-        <header className="flex justify-center pt-6 sm:pt-8">
-          <nav className="inline-flex w-full max-w-7xl items-center justify-between rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-2xl shadow-orange-200/60 ring-1 ring-white/50 backdrop-blur-2xl sm:px-6 sm:py-2.5">
-            {/* Logo — acts as back/home button */}
+        <Navbar
+          leftContent={
             <button
               type="button"
               onClick={onBack}
@@ -116,17 +113,8 @@ export default function BookListPage({
             >
               City Archive
             </button>
-
-            {/* Login */}
-            <button
-              type="button"
-              onClick={onLogin}
-              className="inline-flex transform items-center rounded-full border border-white/60 bg-white/60 px-4 py-1.5 text-sm font-medium text-slate-800 shadow-sm transition duration-200 ease-out hover:-translate-y-px hover:bg-white/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80"
-            >
-              Login
-            </button>
-          </nav>
-        </header>
+          }
+        />
 
         {/* Main content */}
         <main className="mx-auto mt-10 w-full max-w-7xl flex-1 sm:mt-12">

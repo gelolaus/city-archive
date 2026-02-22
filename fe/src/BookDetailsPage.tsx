@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/api/client";
+import Navbar from "@/components/Navbar";
 
 interface BookDetail {
   book_id: number;
@@ -16,12 +17,11 @@ interface BookDetail {
 interface BookDetailsPageProps {
   bookId: number;
   onBack: () => void;
-  onLogin: () => void;
 }
 
 const DEFAULT_COVER = "from-amber-300/80 to-orange-400/80";
 
-export default function BookDetailsPage({ bookId, onBack, onLogin }: BookDetailsPageProps) {
+export default function BookDetailsPage({ bookId, onBack }: BookDetailsPageProps) {
   const [book, setBook] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -104,9 +104,8 @@ export default function BookDetailsPage({ bookId, onBack, onLogin }: BookDetails
       </div>
 
       <div className="relative flex min-h-screen flex-col px-4 pb-28 sm:px-6 lg:px-8">
-        {/* Navbar */}
-        <header className="flex justify-center pt-6 sm:pt-8">
-          <nav className="inline-flex w-full max-w-7xl items-center justify-between rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-2xl shadow-orange-200/60 ring-1 ring-white/50 backdrop-blur-2xl sm:px-6 sm:py-2.5">
+        <Navbar
+          leftContent={
             <button
               type="button"
               onClick={onBack}
@@ -114,16 +113,8 @@ export default function BookDetailsPage({ bookId, onBack, onLogin }: BookDetails
             >
               City Archive
             </button>
-
-            <button
-              type="button"
-              onClick={onLogin}
-              className="inline-flex transform items-center rounded-full border border-white/60 bg-white/60 px-4 py-1.5 text-sm font-medium text-slate-800 shadow-sm transition duration-200 ease-out hover:-translate-y-px hover:bg-white/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80"
-            >
-              Login
-            </button>
-          </nav>
-        </header>
+          }
+        />
 
         {/* Main content */}
         <main className="mx-auto mt-8 flex w-full max-w-5xl flex-1 items-start justify-center sm:mt-10 sm:items-center">

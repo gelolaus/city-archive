@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import CirculationDeskPage from "./CirculationDeskPage";
 import CTODashboardPage from "./CTODashboardPage";
 import CatalogingPage from "./CatalogingPage";
@@ -9,55 +10,55 @@ type AdminPage = "cto" | "circulation" | "cataloging" | "member-registration" | 
 
 export default function AdminApp() {
   const [adminPage, setAdminPage] = useState<AdminPage>("cto");
+  const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    window.location.href = "/";
-  };
+  const greetingBar = (
+    <div className="fixed left-[15rem] right-0 top-0 z-30 flex items-center justify-end border-b border-white/40 bg-amber-100/95 px-4 py-2 backdrop-blur-sm">
+      <span className="text-sm font-medium text-slate-700">
+        Hello, {user?.first_name}
+      </span>
+    </div>
+  );
 
   if (adminPage === "cto") {
     return (
-      <CTODashboardPage
-        onNavigate={setAdminPage}
-        onLogout={handleLogout}
-      />
+      <>
+        {greetingBar}
+        <CTODashboardPage onNavigate={setAdminPage} onLogout={logout} />
+      </>
     );
   }
-
   if (adminPage === "cataloging") {
     return (
-      <CatalogingPage
-        onLogout={handleLogout}
-        onNavigate={setAdminPage}
-      />
+      <>
+        {greetingBar}
+        <CatalogingPage onLogout={logout} onNavigate={setAdminPage} />
+      </>
     );
   }
-
   if (adminPage === "circulation") {
     return (
-      <CirculationDeskPage
-        onLogout={handleLogout}
-        onNavigate={setAdminPage}
-      />
+      <>
+        {greetingBar}
+        <CirculationDeskPage onLogout={logout} onNavigate={setAdminPage} />
+      </>
     );
   }
-
   if (adminPage === "member-registration") {
     return (
-      <MemberRegistrationPage
-        onNavigate={setAdminPage}
-        onLogout={handleLogout}
-      />
+      <>
+        {greetingBar}
+        <MemberRegistrationPage onNavigate={setAdminPage} onLogout={logout} />
+      </>
     );
   }
-
   if (adminPage === "financial-settlement") {
     return (
-      <FinancialSettlementPage
-        onNavigate={setAdminPage}
-        onLogout={handleLogout}
-      />
+      <>
+        {greetingBar}
+        <FinancialSettlementPage onNavigate={setAdminPage} onLogout={logout} />
+      </>
     );
   }
-
   return null;
 }
