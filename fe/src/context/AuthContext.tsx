@@ -42,11 +42,11 @@ function readStoredSession(): AuthSession | null {
       typeof parsed.user === "object" &&
       "first_name" in parsed.user
     ) {
+      const obj = parsed as Record<string, unknown>;
+      const tokenValue = obj.token;
       return {
         user: parsed.user as AuthUser,
-        token: typeof (parsed as { token?: string }).token === "string"
-          ? (parsed as { token: string }).token
-          : null,
+        token: typeof tokenValue === "string" ? tokenValue : null,
       };
     }
   } catch {
