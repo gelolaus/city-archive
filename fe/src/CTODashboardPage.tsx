@@ -98,18 +98,50 @@ export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardP
   const [errorStats, setErrorStats] = useState("");
   const [errorLogs, setErrorLogs] = useState("");
 
-  useEffect(() => {
+  const fetchStats = () => {
+    setLoadingStats(true);
+    setErrorStats("");
     apiFetch("/api/dashboard/stats")
-      .then((data: DashboardStats) => setStats(data))
-      .catch((err: { message?: string }) => setErrorStats(err?.message || "MySQL stats unavailable."))
+      .then((data: DashboardStats) => {
+        setStats(data);
+        setErrorStats("");
+      })
+      .catch((err: { message?: string; status?: number }) => {
+        const msg = err?.message || "MySQL stats unavailable.";
+        const hint =
+          msg === "Failed to fetch" || !err?.status
+            ? " Ensure the backend is running and VITE_API_URL points to it (e.g. http://localhost:5000)."
+            : "";
+        setErrorStats(msg + hint);
+      })
       .finally(() => setLoadingStats(false));
+  };
+
+  const fetchLogs = () => {
+    setLoadingLogs(true);
+    setErrorLogs("");
+    apiFetch("/api/log?limit=10")
+      .then((data: { logs?: TelemetryLog[] }) => {
+        setTelemetryLogs(Array.isArray(data?.logs) ? data.logs : []);
+        setErrorLogs("");
+      })
+      .catch((err: { message?: string; status?: number }) => {
+        const msg = err?.message || "MongoDB telemetry unavailable.";
+        const hint =
+          msg === "Failed to fetch" || !err?.status
+            ? " Ensure the backend is running and VITE_API_URL points to it (e.g. http://localhost:5000)."
+            : "";
+        setErrorLogs(msg + hint);
+      })
+      .finally(() => setLoadingLogs(false));
+  };
+
+  useEffect(() => {
+    fetchStats();
   }, []);
 
   useEffect(() => {
-    apiFetch("/api/log?limit=10")
-      .then((data: { logs?: TelemetryLog[] }) => setTelemetryLogs(Array.isArray(data?.logs) ? data.logs : []))
-      .catch((err: { message?: string }) => setErrorLogs(err?.message || "MongoDB telemetry unavailable."))
-      .finally(() => setLoadingLogs(false));
+    fetchLogs();
   }, []);
 
   return (
@@ -219,8 +251,16 @@ export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardP
 
         {/* ── KPI Cards Row ── */}
         {errorStats && (
-          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-800 backdrop-blur-sm">
-            {errorStats}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-800 backdrop-blur-sm">
+            <span>{errorStats}</span>
+            <button
+              type="button"
+              onClick={fetchStats}
+              disabled={loadingStats}
+              className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+            >
+              {loadingStats ? "Loading…" : "Retry"}
+            </button>
           </div>
         )}
         <section aria-label="Key Performance Indicators" className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -302,8 +342,16 @@ export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardP
               </span>
             </div>
             {errorLogs && (
-              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800">
-                {errorLogs}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800">
+                <span>{errorLogs}</span>
+                <button
+                  type="button"
+                  onClick={fetchLogs}
+                  disabled={loadingLogs}
+                  className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
+                >
+                  {loadingLogs ? "Loading…" : "Retry"}
+                </button>
               </div>
             )}
             {loadingLogs ? (
@@ -421,7 +469,7 @@ export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardP
           </div>
         </section>
 
-        {/* ── Inventory Gaps Panel ── */}
+        {/* ── Inventory Gaps Panel (placeholder until backend supports dead-end search aggregation) ── */}
         <section aria-label="Inventory Gaps" className="mb-8">
           <div className="rounded-3xl border border-white/60 bg-white/50 p-6 shadow-2xl backdrop-blur-2xl sm:p-8">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -430,12 +478,12 @@ export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardP
                   Inventory Gaps (Dead-End Searches)
                 </h2>
                 <p className="mt-0.5 text-sm text-slate-500">
-                  Search queries that returned zero results — potential acquisition targets.
+                  Search queries that returned zero results — potential acquisition targets. Placeholder data below until backend exposes aggregation from MongoDB telemetry.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100/60 px-3 py-1 text-xs font-medium text-emerald-700 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Sourced from MongoDB Telemetry
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100/80 px-3 py-1 text-xs font-medium text-slate-600 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                Sample data (not live)
               </span>
             </div>
 
@@ -478,20 +526,19 @@ export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardP
           </div>
         </section>
 
-        {/* ── Hoarder Alerts Panel ── */}
+        {/* ── Hoarder Alerts Panel (placeholder until backend exposes trigger/audit data) ── */}
         <section aria-label="Hoarder Alerts">
           <div className="rounded-3xl border border-white/60 bg-white/50 p-6 shadow-2xl backdrop-blur-2xl sm:p-8">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Hoarder Alerts</h2>
                 <p className="mt-0.5 text-sm text-slate-500">
-                  Members who triggered the 5-book active loan constraint.
+                  Members who triggered the 5-book active loan constraint. Placeholder data below until backend exposes audit/trigger data from MySQL.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-100/60 px-3 py-1 text-xs font-medium text-orange-700 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-                Sourced from MySQL{" "}
-                <code className="font-mono">trg_limit_active_loans</code>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100/80 px-3 py-1 text-xs font-medium text-slate-600 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                Sample data (not live)
               </span>
             </div>
 

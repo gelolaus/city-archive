@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { apiFetch } from "@/api/client";
+import { useAuth } from "@/context/AuthContext";
 
 type AdminPage = "cto" | "circulation" | "cataloging" | "member-registration" | "financial-settlement";
 
@@ -9,6 +11,7 @@ interface CirculationDeskPageProps {
 }
 
 export default function CirculationDeskPage({ onLogout, onNavigate }: CirculationDeskPageProps) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"borrow" | "return">("borrow");
 
   // Borrow form state
@@ -38,6 +41,7 @@ export default function CirculationDeskPage({ onLogout, onNavigate }: Circulatio
         body: JSON.stringify({
           member_id: Number(memberId),
           book_id: Number(bookId),
+          librarian_id: (user as { librarian_id?: number })?.librarian_id ?? null,
         }),
       });
       setMemberId("");
@@ -47,6 +51,9 @@ export default function CirculationDeskPage({ onLogout, onNavigate }: Circulatio
       const msg = err && typeof err === "object" && "message" in err ? String((err as { message: string }).message) : "Request failed.";
       setErrorMessage(msg);
       setShowError(true);
+      if (msg.toLowerCase().includes("maximum of 5 active loans")) {
+        toast.error("Loan limit reached. This member has 5 active loans.");
+      }
     } finally {
       setBorrowLoading(false);
     }

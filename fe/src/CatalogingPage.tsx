@@ -19,6 +19,7 @@ export default function CatalogingPage({ onLogout, onNavigate }: CatalogingPageP
   // MongoDB fields
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [genreTags, setGenreTags] = useState("");
+  const [summary, setSummary] = useState("");
   const [synopsis, setSynopsis] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -41,6 +42,7 @@ export default function CatalogingPage({ onLogout, onNavigate }: CatalogingPageP
           category: category || undefined,
           cover_image_url: coverImageUrl || undefined,
           genre_tags: genreTags || undefined,
+          summary: summary || undefined,
           synopsis: synopsis || undefined,
         }),
       });
@@ -52,6 +54,7 @@ export default function CatalogingPage({ onLogout, onNavigate }: CatalogingPageP
       setCategory("");
       setCoverImageUrl("");
       setGenreTags("");
+      setSummary("");
       setSynopsis("");
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "message" in err ? String((err as { message: string }).message) : "Ingest failed.";
@@ -372,6 +375,21 @@ export default function CatalogingPage({ onLogout, onNavigate }: CatalogingPageP
                     <p className="pl-1 text-[11px] text-slate-400">
                       Comma-separated values
                     </p>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="summary" className={labelBase}>
+                      Summary
+                    </label>
+                    <textarea
+                      id="summary"
+                      value={summary}
+                      onChange={(e) => setSummary(e.target.value)}
+                      placeholder="Short summary of the book…"
+                      rows={3}
+                      className="w-full rounded-2xl border border-white/60 bg-white/50 px-5 py-3 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm backdrop-blur-xl outline-none transition-all duration-200 focus:border-white/70 focus:ring-2 focus:ring-sky-300/80 resize-none leading-relaxed"
+                    />
                   </div>
 
                   {/* Synopsis */}

@@ -1,5 +1,6 @@
 import express from 'express';
 import { mysqlPool } from '../config/db.js';
+import UserTelemetryLog from '../models/UserTelemetryLog.js';
 
 const router = express.Router();
 
@@ -28,6 +29,10 @@ router.post('/register', async (req, res, next) => {
       phone ?? null,
       address ?? null,
     ]);
+    await UserTelemetryLog.create({
+      event_type: 'MEMBER_CREATED',
+      payload: { member_email: email },
+    });
     res.status(201).json({ status: 'ok', message: 'Member registered.' });
   } catch (err) {
     next(err);

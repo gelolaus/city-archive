@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Toaster } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import CirculationDeskPage from "./CirculationDeskPage";
 import CTODashboardPage from "./CTODashboardPage";
@@ -23,6 +24,7 @@ export default function AdminApp() {
   if (adminPage === "cto") {
     return (
       <>
+        <Toaster position="top-right" richColors />
         {greetingBar}
         <CTODashboardPage onNavigate={setAdminPage} onLogout={logout} />
       </>
@@ -31,6 +33,7 @@ export default function AdminApp() {
   if (adminPage === "cataloging") {
     return (
       <>
+        <Toaster position="top-right" richColors />
         {greetingBar}
         <CatalogingPage onLogout={logout} onNavigate={setAdminPage} />
       </>
@@ -39,6 +42,7 @@ export default function AdminApp() {
   if (adminPage === "circulation") {
     return (
       <>
+        <Toaster position="top-right" richColors />
         {greetingBar}
         <CirculationDeskPage onLogout={logout} onNavigate={setAdminPage} />
       </>
@@ -47,6 +51,7 @@ export default function AdminApp() {
   if (adminPage === "member-registration") {
     return (
       <>
+        <Toaster position="top-right" richColors />
         {greetingBar}
         <MemberRegistrationPage onNavigate={setAdminPage} onLogout={logout} />
       </>
@@ -55,6 +60,7 @@ export default function AdminApp() {
   if (adminPage === "financial-settlement") {
     return (
       <>
+        <Toaster position="top-right" richColors />
         {greetingBar}
         <FinancialSettlementPage onNavigate={setAdminPage} onLogout={logout} />
       </>
