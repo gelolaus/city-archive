@@ -12,15 +12,26 @@ export function getMemberSession(): MemberSession | null {
   try {
     const raw = localStorage.getItem(MEMBER_SESSION_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw) as MemberSession;
-    return data && typeof data.id === "number" ? data : null;
+    const data = JSON.parse(raw) as { id?: number | string; email?: string; [key: string]: unknown };
+    if (!data) return null;
+    const id = data.id;
+    const numId = typeof id === "string" ? parseInt(id, 10) : id;
+    if (typeof numId === "number" && !Number.isNaN(numId)) {
+      return { ...data, id: numId } as MemberSession;
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-export function setMemberSession(member: MemberSession): void {
-  localStorage.setItem(MEMBER_SESSION_KEY, JSON.stringify(member));
+export function setMemberSession(member: { id?: number | string; email?: string; [key: string]: unknown }): void {
+  const id = member.id;
+  const numId = typeof id === "string" ? parseInt(id, 10) : id;
+  const normalized = typeof numId === "number" && !Number.isNaN(numId)
+    ? { ...member, id: numId }
+    : member;
+  localStorage.setItem(MEMBER_SESSION_KEY, JSON.stringify(normalized));
 }
 
 export function clearMemberSession(): void {

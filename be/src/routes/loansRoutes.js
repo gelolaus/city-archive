@@ -141,7 +141,7 @@ router.put('/:id/return', async (req, res, next) => {
     const loanId = req.params.id;
 
     const [updateResult] = await mysqlPool.query(
-      'UPDATE loans SET returned_at = NOW() WHERE loan_id = ? AND returned_at IS NULL',
+      'UPDATE loans SET returned_at = NOW(), return_date = NOW() WHERE loan_id = ? AND returned_at IS NULL',
       [loanId]
     );
     if (updateResult.affectedRows === 0) {

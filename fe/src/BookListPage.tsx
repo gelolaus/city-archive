@@ -34,7 +34,6 @@ interface BookListPageProps {
   onBack: () => void;
   onSearch: (query: string) => void;
   onSelectBook: (id: number) => void;
-  onLogin: () => void;
   isMemberLoggedIn: boolean;
   onLogout: () => void;
 }
@@ -44,7 +43,6 @@ export default function BookListPage({
   onBack,
   onSearch,
   onSelectBook,
-  onLogin,
   isMemberLoggedIn,
   onLogout,
 }: BookListPageProps) {
@@ -121,22 +119,14 @@ export default function BookListPage({
               City Archive
             </button>
 
-            {/* Login / Log out */}
-            {isMemberLoggedIn ? (
+            {/* Log out — only when member is logged in */}
+            {isMemberLoggedIn && (
               <button
                 type="button"
                 onClick={onLogout}
                 className="inline-flex transform items-center rounded-full border border-white/60 bg-white/60 px-4 py-1.5 text-sm font-medium text-slate-800 shadow-sm transition duration-200 ease-out hover:-translate-y-px hover:bg-white/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80"
               >
                 Log out
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onLogin}
-                className="inline-flex transform items-center rounded-full border border-white/60 bg-white/60 px-4 py-1.5 text-sm font-medium text-slate-800 shadow-sm transition duration-200 ease-out hover:-translate-y-px hover:bg-white/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80"
-              >
-                Login
               </button>
             )}
           </nav>

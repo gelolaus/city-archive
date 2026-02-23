@@ -24,7 +24,7 @@ export default function MemberLogin() {
         body: JSON.stringify({ email, password }),
       });
       const member = data?.member;
-      if (member && typeof member.id === "number") {
+      if (member != null && (member.id === 0 || member.id === "0" || !!member.id)) {
         setMemberSession(member);
       }
       window.location.href = "/";

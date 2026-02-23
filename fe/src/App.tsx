@@ -40,7 +40,6 @@ function App() {
       <BookDetailsPage
         bookId={selectedBookId!}
         onBack={() => setPage("booklist")}
-        onLogin={() => { window.location.href = "/login"; }}
         isMemberLoggedIn={memberLoggedIn}
         onLogout={handleLogout}
       />
@@ -54,7 +53,6 @@ function App() {
         onBack={() => setPage("home")}
         onSearch={(query) => navigateToBookList(query)}
         onSelectBook={navigateToBookDetails}
-        onLogin={() => { window.location.href = "/login"; }}
         isMemberLoggedIn={memberLoggedIn}
         onLogout={handleLogout}
       />
@@ -88,7 +86,7 @@ function App() {
               >
                 Browse All
               </button>
-              {memberLoggedIn ? (
+              {memberLoggedIn && (
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -96,13 +94,6 @@ function App() {
                 >
                   Log out
                 </button>
-              ) : (
-                <a
-                  href="/login"
-                  className="inline-flex transform items-center rounded-full border border-white/60 bg-white/60 px-4 py-1.5 text-sm font-medium text-slate-800 shadow-sm transition duration-200 ease-out hover:-translate-y-px hover:bg-white/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 focus-visible:ring-offset-0"
-                >
-                  Login
-                </a>
               )}
             </div>
           </nav>
