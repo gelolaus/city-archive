@@ -10,20 +10,18 @@ router.get('/', async (req, res, next) => {
     let query = `
       SELECT l.loan_id, l.member_id, l.book_id, l.librarian_id,
              l.borrowed_at, l.due_date, l.returned_at,
-             m.first_name AS member_first, m.last_name AS member_last, m.email AS member_email,
+             CONCAT(m.first_name, ' ', m.last_name) AS member_name,
              b.title AS book_title, b.isbn,
              CONCAT(lib.first_name, ' ', lib.last_name) AS librarian_name,
              CASE
                WHEN l.returned_at IS NOT NULL THEN 'Returned'
                WHEN l.due_date < CURDATE() THEN 'Overdue'
                ELSE 'Active'
-             END AS loan_status,
-             f.fine_id, f.amount AS fine_amount, f.is_paid AS fine_paid
+             END AS status
       FROM loans l
       JOIN members m ON l.member_id = m.member_id
       JOIN books b ON l.book_id = b.book_id
       LEFT JOIN librarians lib ON l.librarian_id = lib.librarian_id
-      LEFT JOIN fines f ON l.loan_id = f.loan_id
     `;
     const conditions = [];
     const params = [];
@@ -34,11 +32,12 @@ router.get('/', async (req, res, next) => {
       params.push(term, term, term, term, term);
     }
 
-    if (status === 'active') {
+    const statusNorm = (typeof status === 'string' && status.trim()) ? status.trim().toLowerCase() : '';
+    if (statusNorm === 'active') {
       conditions.push('l.returned_at IS NULL');
-    } else if (status === 'returned') {
+    } else if (statusNorm === 'returned') {
       conditions.push('l.returned_at IS NOT NULL');
-    } else if (status === 'overdue') {
+    } else if (statusNorm === 'overdue') {
       conditions.push('l.returned_at IS NULL AND l.due_date < CURDATE()');
     }
 
@@ -68,7 +67,7 @@ router.post('/', async (req, res, next) => {
     // Fetch the newly created loan for receipt
     const [loans] = await mysqlPool.query(
       `SELECT l.loan_id, l.borrowed_at, l.due_date,
-              m.first_name AS member_first, m.last_name AS member_last, m.email AS member_email, m.member_id,
+              m.first_name AS member_first, m.last_name AS member_last, m.member_id,
               b.title AS book_title, b.isbn, b.book_id,
               CONCAT(lib.first_name, ' ', lib.last_name) AS librarian_name
        FROM loans l
@@ -80,11 +79,20 @@ router.post('/', async (req, res, next) => {
       [member_id, book_id]
     );
 
-    const receipt = loans.length > 0 ? loans[0] : null;
+    const row = loans.length > 0 ? loans[0] : null;
+    const receipt = row ? {
+      loan_id: row.loan_id,
+      member_name: `${row.member_first || ''} ${row.member_last || ''}`.trim(),
+      book_title: row.book_title || '',
+      isbn: row.isbn || '',
+      borrowed_at: row.borrowed_at,
+      due_date: row.due_date,
+    } : null;
 
     res.status(201).json({
       status: 'ok',
       message: 'Loan processed successfully.',
+      loan_id: receipt?.loan_id,
       receipt,
     });
   } catch (err) {

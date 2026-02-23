@@ -24,6 +24,19 @@ interface LoanReceipt {
   due_date: string;
 }
 
+interface MemberOption {
+  member_id: number;
+  first_name: string;
+  last_name: string;
+}
+
+interface BookOption {
+  book_id: number;
+  title: string;
+  isbn: string;
+  status: string;
+}
+
 export default function AdminLoans() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +47,9 @@ export default function AdminLoans() {
   const [formError, setFormError] = useState("");
   const [memberId, setMemberId] = useState("");
   const [bookId, setBookId] = useState("");
+  const [members, setMembers] = useState<MemberOption[]>([]);
+  const [books, setBooks] = useState<BookOption[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
   const [receipt, setReceipt] = useState<LoanReceipt | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -52,6 +68,16 @@ export default function AdminLoans() {
   };
 
   useEffect(() => { fetchLoans(); }, []);
+
+  // Load members and books when New Loan modal opens (for dropdowns)
+  useEffect(() => {
+    if (!showNewLoan) return;
+    setOptionsLoading(true);
+    Promise.all([
+      apiFetch("/api/members").then((data: MemberOption[]) => setMembers(Array.isArray(data) ? data : [])),
+      apiFetch("/api/catalog").then((data: BookOption[]) => setBooks(Array.isArray(data) ? data : [])),
+    ]).catch(() => {}).finally(() => setOptionsLoading(false));
+  }, [showNewLoan]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -81,14 +107,15 @@ export default function AdminLoans() {
         method: "POST",
         body: JSON.stringify({ member_id: Number(memberId), book_id: Number(bookId) }),
       });
-      setReceipt(data.receipt || {
+      const receiptData = data.receipt ?? (data.loan_id ? {
         loan_id: data.loan_id,
-        member_name: `Member #${memberId}`,
-        book_title: `Book #${bookId}`,
-        isbn: "",
+        member_name: (() => { const m = members.find((x) => x.member_id === Number(memberId)); return m ? `${m.first_name} ${m.last_name}`.trim() : `Member #${memberId}`; })(),
+        book_title: books.find((b) => b.book_id === Number(bookId))?.title ?? `Book #${bookId}`,
+        isbn: books.find((b) => b.book_id === Number(bookId))?.isbn ?? "",
         borrowed_at: new Date().toISOString(),
         due_date: new Date(Date.now() + 14 * 86400000).toISOString(),
-      });
+      } : null);
+      setReceipt(receiptData);
       setShowNewLoan(false);
       fetchLoans(searchInput.trim(), statusFilter);
     } catch (err: unknown) {
@@ -241,14 +268,28 @@ export default function AdminLoans() {
               <button type="button" onClick={() => setShowNewLoan(false)} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-100"><X className="h-4 w-4" /></button>
             </div>
             {formError && <div className="mb-4 rounded-2xl border border-rose-200/80 bg-rose-50/90 px-4 py-3 text-sm text-rose-800">{formError}</div>}
+            {optionsLoading && <p className="mb-2 text-sm text-slate-500">Loading members and books…</p>}
             <form onSubmit={handleNewLoan} className="flex flex-col gap-4">
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Member ID</label>
-                <input type="number" value={memberId} onChange={(e) => setMemberId(e.target.value)} required className="w-full rounded-xl border border-slate-200/60 bg-white/50 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-300/80" />
+                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Member</label>
+                <select value={memberId} onChange={(e) => setMemberId(e.target.value)} required className="w-full rounded-xl border border-slate-200/60 bg-white/50 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-300/80" disabled={optionsLoading}>
+                  <option value="">Select member…</option>
+                  {members.map((m) => (
+                    <option key={m.member_id} value={m.member_id}>{m.last_name}, {m.first_name}</option>
+                  ))}
+                </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Book ID</label>
-                <input type="number" value={bookId} onChange={(e) => setBookId(e.target.value)} required className="w-full rounded-xl border border-slate-200/60 bg-white/50 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-300/80" />
+                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Book</label>
+                <select value={bookId} onChange={(e) => setBookId(e.target.value)} required className="w-full rounded-xl border border-slate-200/60 bg-white/50 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-sky-300/80" disabled={optionsLoading}>
+                  <option value="">Select book…</option>
+                  {books.filter((b) => b.status === "Available").map((b) => (
+                    <option key={b.book_id} value={b.book_id}>{b.title}{b.isbn ? ` (${b.isbn})` : ""}</option>
+                  ))}
+                </select>
+                {books.length > 0 && books.filter((b) => b.status === "Available").length === 0 && (
+                  <p className="mt-1 text-xs text-amber-600">No available books. All copies are currently on loan.</p>
+                )}
               </div>
               <div className="mt-2 flex justify-end gap-3">
                 <button type="button" onClick={() => setShowNewLoan(false)} className="rounded-full border border-slate-200/60 bg-white/60 px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-white/80">Cancel</button>
