@@ -54,10 +54,6 @@ export default function BookDetailsPage({ bookId, onBack, onLogin, isMemberLogge
     trackEvent('VIEW_BOOK', { bookId, title: book.title });
   }, [bookId, book]);
 
-  const handleActionClick = () => {
-    // Reserve / Borrow: could call POST /api/borrow when member context exists
-  };
-
   if (loading) {
     return (
       <div className="relative min-h-screen overflow-hidden bg-amber-100 font-sans text-slate-900">
@@ -210,16 +206,6 @@ export default function BookDetailsPage({ bookId, onBack, onLogin, isMemberLogge
                     />
                     {book.available ? "Available to Borrow" : "Currently Checked Out"}
                   </span>
-
-                  {/* Action button */}
-                  <button
-                    type="button"
-                    onClick={handleActionClick}
-                    disabled={!book.available}
-                    className="inline-flex items-center justify-center rounded-full bg-slate-900 px-8 py-3 text-sm font-semibold text-white shadow-md transition duration-200 ease-out hover:scale-[1.03] hover:bg-slate-800 hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/80"
-                  >
-                    {book.available ? "Reserve / Borrow" : "Join Waitlist"}
-                  </button>
                 </div>
 
               </div>
