@@ -18,11 +18,13 @@ interface BookDetailsPageProps {
   bookId: number;
   onBack: () => void;
   onLogin: () => void;
+  isMemberLoggedIn: boolean;
+  onLogout: () => void;
 }
 
 const DEFAULT_COVER = "from-amber-300/80 to-orange-400/80";
 
-export default function BookDetailsPage({ bookId, onBack, onLogin }: BookDetailsPageProps) {
+export default function BookDetailsPage({ bookId, onBack, onLogin, isMemberLoggedIn, onLogout }: BookDetailsPageProps) {
   const [book, setBook] = useState<BookDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -111,10 +113,10 @@ export default function BookDetailsPage({ bookId, onBack, onLogin }: BookDetails
 
             <button
               type="button"
-              onClick={onLogin}
+              onClick={isMemberLoggedIn ? onLogout : onLogin}
               className="inline-flex transform items-center rounded-full border border-white/60 bg-white/60 px-4 py-1.5 text-sm font-medium text-slate-800 shadow-sm transition duration-200 ease-out hover:-translate-y-px hover:bg-white/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80"
             >
-              Login
+              {isMemberLoggedIn ? "Log out" : "Login"}
             </button>
           </nav>
         </header>

@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { apiFetch } from "@/api/client";
+import { setMemberSession, isMemberLoggedIn } from "@/auth/memberAuth";
 
 export default function MemberLogin() {
   const [email, setEmail] = useState("");
@@ -7,15 +8,25 @@ export default function MemberLogin() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isMemberLoggedIn()) {
+      window.location.href = "/";
+    }
+  }, []);
+
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await apiFetch("/api/auth/login/member", {
+      const data = await apiFetch("/api/auth/login/member", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+      const member = data?.member;
+      if (member && typeof member.id === "number") {
+        setMemberSession(member);
+      }
       window.location.href = "/";
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "message" in err ? String((err as { message: string }).message) : "Invalid email or password.";
