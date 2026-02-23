@@ -55,6 +55,8 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /api/loans - Create a new loan and return receipt data
+// Matches your DB: borrow logic in API so we can set librarian_id (required) and due_date.
+// Procedure borrow(p_member_id, p_book_id, p_due_date) does not set librarian_id; loans.librarian_id is NOT NULL.
 router.post('/', async (req, res, next) => {
   try {
     const { member_id, book_id, librarian_id } = req.body || {};
@@ -62,7 +64,38 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'member_id and book_id are required.' });
     }
 
-    await mysqlPool.query('CALL borrow(?, ?, ?)', [member_id, book_id, librarian_id ?? null]);
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 14);
+    const dueDateStr = dueDate.toISOString().slice(0, 10); // YYYY-MM-DD
+    const libId = librarian_id != null ? librarian_id : 1;
+
+    // Check book status (same as borrow procedure)
+    const [[bookRow]] = await mysqlPool.query(
+      'SELECT status FROM books WHERE book_id = ?',
+      [book_id]
+    );
+    if (!bookRow) {
+      return res.status(400).json({ status: 'error', message: 'Book not found.' });
+    }
+    if (bookRow.status !== 'Available') {
+      return res.status(400).json({ status: 'error', message: 'Book is not available for borrowing' });
+    }
+
+    // Enforce max 5 active loans per member (same as trg_limit_active_loans)
+    const [[countRow]] = await mysqlPool.query(
+      'SELECT COUNT(*) AS n FROM loans WHERE member_id = ? AND returned_at IS NULL',
+      [member_id]
+    );
+    if (countRow.n >= 5) {
+      return res.status(400).json({ status: 'error', message: 'Error: Member has reached max limit of 5 loans' });
+    }
+
+    // Insert loan (trg_after_borrow will set book status to Borrowed)
+    await mysqlPool.query(
+      `INSERT INTO loans (member_id, book_id, librarian_id, borrowed_at, due_date)
+       VALUES (?, ?, ?, NOW(), ?)`,
+      [member_id, book_id, libId, dueDateStr]
+    );
 
     // Fetch the newly created loan for receipt
     const [loans] = await mysqlPool.query(
@@ -101,12 +134,37 @@ router.post('/', async (req, res, next) => {
 });
 
 // PUT /api/loans/:id/return - Mark loan as returned
+// Your schema has no return_item procedure; triggers use return_date but table has returned_at.
+// We update returned_at, then set book back to Available and create fine if overdue.
 router.put('/:id/return', async (req, res, next) => {
   try {
     const loanId = req.params.id;
-    await mysqlPool.query('CALL return_item(?)', [loanId]);
 
-    // Check if a fine was generated
+    const [updateResult] = await mysqlPool.query(
+      'UPDATE loans SET returned_at = NOW() WHERE loan_id = ? AND returned_at IS NULL',
+      [loanId]
+    );
+    if (updateResult.affectedRows === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Loan not found or already returned.',
+      });
+    }
+
+    const [[loan]] = await mysqlPool.query(
+      'SELECT book_id, due_date, returned_at FROM loans WHERE loan_id = ?',
+      [loanId]
+    );
+    if (loan) {
+      await mysqlPool.query('UPDATE books SET status = ? WHERE book_id = ?', ['Available', loan.book_id]);
+      await mysqlPool.query(
+        `INSERT INTO fines (loan_id, amount)
+         SELECT loan_id, calculate_fine(due_date, returned_at)
+         FROM loans WHERE loan_id = ? AND returned_at > due_date`,
+        [loanId]
+      );
+    }
+
     const [fines] = await mysqlPool.query(
       'SELECT fine_id, amount, is_paid FROM fines WHERE loan_id = ? ORDER BY fine_id DESC LIMIT 1',
       [loanId]

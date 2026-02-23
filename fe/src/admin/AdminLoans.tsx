@@ -119,7 +119,10 @@ export default function AdminLoans() {
       setShowNewLoan(false);
       fetchLoans(searchInput.trim(), statusFilter);
     } catch (err: unknown) {
-      const msg = err && typeof err === "object" && "message" in err ? String((err as { message: string }).message) : "Failed to create loan.";
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Failed to create loan.";
       setFormError(msg);
     } finally { setFormLoading(false); }
   };
