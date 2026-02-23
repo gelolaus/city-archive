@@ -1,0 +1,23 @@
+### Test 1: Successful Registration
+POST http://127.0.0.1:5000/api/members/register
+Content-Type: application/json
+
+{
+    "firstName": "Angelo",
+    "lastName": "Laus",
+    "email": "angelo.laus@jhundb.com",
+    "phone": "09170001234",
+    "password": "StrongPassword@2026"
+}
+
+### Test 2: Intentional Constraint Failure (Weak Password)
+POST http://127.0.0.1:5000/api/members/register
+Content-Type: application/json
+
+{
+    "firstName": "Angelo",
+    "lastName": "Laus",
+    "email": "angelo.fail@jhundb.com",
+    "phone": "09170005678",
+    "password": "weakpassword"
+}

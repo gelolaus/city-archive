@@ -83,12 +83,12 @@ const bookAnalyticsSchema = new Schema<IBookAnalytics>({
     last_updated: { type: Date, default: Date.now }
 });
 
-bookAnalyticsSchema.pre<IBookAnalytics>('save', function(next) {
+// Modernized async hook: Bypasses the strict 'next' typing clash entirely
+bookAnalyticsSchema.pre('save', async function (this: IBookAnalytics) {
     if (this.total_views > 0) {
         this.conversion_rate = parseFloat((this.total_borrows / this.total_views).toFixed(4));
     }
     this.last_updated = new Date();
-    next();
 });
 
 // ==========================================

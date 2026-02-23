@@ -4,24 +4,32 @@ import dotenv from 'dotenv';
 
 // Import Explicit Database Connections
 import connectMongo from './config/db-mongo';
-import { connectMySQL } from './config/db-mysql'; 
+import { connectMySQL } from './config/db-mysql';
+
+// Import Routes
+import memberRoutes from './routes/memberRoutes';
 
 dotenv.config();
 
 const app: Application = express();
 
 // Middleware
-app.use(cors()); 
-app.use(express.json()); 
+app.use(cors());
+app.use(express.json());
 
 // Initialize Both Databases Explicitly
 connectMongo();
 connectMySQL();
 
+// ==========================================
+// API ROUTES
+// ==========================================
+app.use('/api/members', memberRoutes);
+
 // Health Check Route
 app.get('/api/health', (req: Request, res: Response) => {
-    res.status(200).json({ 
-        status: 'Active', 
+    res.status(200).json({
+        status: 'Active',
         message: 'City Archive TypeScript API is running.',
         timestamp: new Date().toISOString()
     });
