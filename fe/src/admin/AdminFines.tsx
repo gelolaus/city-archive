@@ -213,10 +213,6 @@ export default function AdminFines() {
         )}
       </div>
 
-      {/* Config reminder */}
-      <div className="mt-6 rounded-2xl border border-amber-200/60 bg-amber-50/50 px-5 py-4 text-sm text-amber-800 backdrop-blur-xl">
-        <strong>EmailJS Setup:</strong> Open <code className="mx-1 rounded bg-amber-100/60 px-1.5 py-0.5 text-xs">fe/src/admin/AdminFines.tsx</code> and replace <code className="mx-1 rounded bg-amber-100/60 px-1.5 py-0.5 text-xs">YOUR_SERVICE_ID</code>, <code className="mx-1 rounded bg-amber-100/60 px-1.5 py-0.5 text-xs">YOUR_TEMPLATE_ID</code>, and <code className="mx-1 rounded bg-amber-100/60 px-1.5 py-0.5 text-xs">YOUR_PUBLIC_KEY</code> with your EmailJS credentials.
-      </div>
     </>
   );
 }
