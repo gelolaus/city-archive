@@ -1,11 +1,10 @@
 import express from 'express';
 import { mysqlPool } from '../config/db.js';
-import requireStaff from '../middleware/requireStaff.js';
 
 const router = express.Router();
 
-// GET /api/members - List all members with optional search (staff only)
-router.get('/', requireStaff, async (req, res, next) => {
+// GET /api/members - List all members with optional search
+router.get('/', async (req, res, next) => {
   try {
     const { q } = req.query;
     let query = `
@@ -32,8 +31,8 @@ router.get('/', requireStaff, async (req, res, next) => {
   }
 });
 
-// GET /api/members/:id - Single member (staff only)
-router.get('/:id', requireStaff, async (req, res, next) => {
+// GET /api/members/:id - Single member
+router.get('/:id', async (req, res, next) => {
   try {
     const [rows] = await mysqlPool.query('SELECT * FROM members WHERE member_id = ?', [req.params.id]);
     if (rows.length === 0) {
@@ -46,8 +45,8 @@ router.get('/:id', requireStaff, async (req, res, next) => {
   }
 });
 
-// PUT /api/members/:id - Update member info (staff only)
-router.put('/:id', requireStaff, async (req, res, next) => {
+// PUT /api/members/:id - Update member info
+router.put('/:id', async (req, res, next) => {
   try {
     const { first_name, last_name, email, phone } = req.body || {};
     const [result] = await mysqlPool.query(
@@ -68,8 +67,8 @@ router.put('/:id', requireStaff, async (req, res, next) => {
   }
 });
 
-// DELETE /api/members/:id - Remove member (staff only)
-router.delete('/:id', requireStaff, async (req, res, next) => {
+// DELETE /api/members/:id - Remove member
+router.delete('/:id', async (req, res, next) => {
   try {
     const [result] = await mysqlPool.query('DELETE FROM members WHERE member_id = ?', [req.params.id]);
     if (result.affectedRows === 0) {
