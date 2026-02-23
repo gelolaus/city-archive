@@ -72,22 +72,34 @@ export interface IBookAnalytics extends Document {
     conversion_rate: number;
     avg_return_time_days: number;
     last_updated: Date;
+    return_durations: number[];
+    total_returns: number;
 }
 
 const bookAnalyticsSchema = new Schema<IBookAnalytics>({
     book_mongo_id: { type: Schema.Types.ObjectId, ref: 'BookContent', required: true, unique: true },
     total_views: { type: Number, default: 0 },
     total_borrows: { type: Number, default: 0 },
-    conversion_rate: { type: Number, default: 0.00 },
-    avg_return_time_days: { type: Number, default: 0.00 },
-    last_updated: { type: Date, default: Date.now }
+    conversion_rate: { type: Number, default: 0.0 },
+    avg_return_time_days: { type: Number, default: 0.0 },
+    last_updated: { type: Date, default: Date.now },
+    return_durations: { type: [Number], default: [] },
+    total_returns: { type: Number, default: 0 }
 });
 
-// Modernized async hook: Bypasses the strict 'next' typing clash entirely
+// Modernized async hook: keeps conversion rate and average return time in sync
 bookAnalyticsSchema.pre('save', async function (this: IBookAnalytics) {
     if (this.total_views > 0) {
         this.conversion_rate = parseFloat((this.total_borrows / this.total_views).toFixed(4));
     }
+
+    if (this.return_durations && this.return_durations.length > 0) {
+        const sum = this.return_durations.reduce((acc, val) => acc + val, 0);
+        this.avg_return_time_days = parseFloat(
+            (sum / this.return_durations.length).toFixed(2)
+        );
+    }
+
     this.last_updated = new Date();
 });
 

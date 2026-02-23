@@ -95,3 +95,8 @@ Content-Type: application/json
     "synopsis": "A masterpiece of Philippine literature.",
     "totalCopies": 5
 }
+
+### Test 9: Return a Book (MySQL Logic + Mongo Analytics)
+# Replace '1' with your actual loanId from MySQL
+POST {{baseUrl}}/books/return/3
+Content-Type: application/json
