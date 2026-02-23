@@ -20,7 +20,7 @@ router.get('/', async (req, res, next) => {
       const term = `%${q}%`;
       params.push(term, term, term, term);
     }
-    query += ` GROUP BY m.member_id ORDER BY m.last_name, m.first_name`;
+    query += ` GROUP BY m.member_id, m.first_name, m.last_name, m.email, m.phone, m.created_at ORDER BY m.last_name, m.first_name`;
     const [rows] = await mysqlPool.query(query, params);
     
     // Updated to strip 'password_hash' to match your DB schema

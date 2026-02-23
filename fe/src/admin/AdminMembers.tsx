@@ -16,6 +16,7 @@ interface Member {
 export default function AdminMembers() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
   const [searchQ, setSearchQ] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -34,10 +35,15 @@ export default function AdminMembers() {
 
   const fetchMembers = (q = "") => {
     setLoading(true);
+    setFetchError("");
     const url = q ? `/api/members?q=${encodeURIComponent(q)}` : "/api/members";
     apiFetch(url)
-      .then((data: Member[]) => setMembers(data))
-      .catch(() => {})
+      .then((data: unknown) => setMembers(Array.isArray(data) ? data as Member[] : []))
+      .catch((err: unknown) => {
+        const msg = err && typeof err === "object" && "message" in err ? String((err as { message: string }).message) : "Failed to load members.";
+        setFetchError(msg);
+        setMembers([]);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -120,6 +126,11 @@ export default function AdminMembers() {
 
       {/* Members Table */}
       <div className="overflow-x-auto rounded-3xl border border-white/60 bg-white/50 shadow-2xl backdrop-blur-2xl">
+        {fetchError && (
+          <div className="rounded-t-3xl border-b border-amber-200/60 bg-amber-50/90 px-6 py-3 text-sm text-amber-800">
+            {fetchError}
+          </div>
+        )}
         {loading ? (
           <div className="px-6 py-16 text-center text-slate-500">Loading members…</div>
         ) : members.length === 0 ? (
