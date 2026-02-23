@@ -3,58 +3,79 @@ import { mysqlPool } from '../config/db.js';
 
 const router = express.Router();
 
+// GET /api/dashboard/stats - Aggregated dashboard statistics
 router.get('/stats', async (req, res, next) => {
   try {
-    const [membersRow] = await mysqlPool.query('SELECT COUNT(*) AS count FROM members');
-    const [booksRow] = await mysqlPool.query('SELECT COUNT(*) AS count FROM books');
-    const [activeLoansRow] = await mysqlPool.query(
-      'SELECT COUNT(*) AS count FROM loans WHERE return_date IS NULL'
+    const [[bookCount]] = await mysqlPool.query('SELECT COUNT(*) AS total FROM books');
+    const [[memberCount]] = await mysqlPool.query('SELECT COUNT(*) AS total FROM members');
+    const [[activeLoans]] = await mysqlPool.query('SELECT COUNT(*) AS total FROM loans WHERE returned_at IS NULL');
+    const [[unpaidFines]] = await mysqlPool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM fines WHERE is_paid = FALSE');
+    const [[overdueLoans]] = await mysqlPool.query(
+      'SELECT COUNT(*) AS total FROM loans WHERE returned_at IS NULL AND due_date < CURDATE()'
     );
-    const [overdueRow] = await mysqlPool.query(
-      'SELECT COUNT(*) AS count FROM loans WHERE return_date IS NULL AND due_date < CURDATE()'
+    const [[todayLoans]] = await mysqlPool.query(
+      'SELECT COUNT(*) AS total FROM loans WHERE DATE(borrowed_at) = CURDATE()'
     );
-    const [finesPaidRow] = await mysqlPool.query(
-      'SELECT COALESCE(SUM(amount), 0) AS total FROM fines WHERE is_paid = TRUE'
-    );
-    const [finesUnpaidRow] = await mysqlPool.query(
-      'SELECT COALESCE(SUM(amount), 0) AS total FROM fines WHERE is_paid = FALSE'
-    );
-    const [categoryRows] = await mysqlPool.query(`
-      SELECT COALESCE(c.category, 'Uncategorized') AS category_name, COUNT(b.book_id) AS count
-      FROM books b
-      LEFT JOIN categories c ON b.category_id = c.category_id
-      GROUP BY c.category_id, c.category
-      ORDER BY count DESC
-    `);
-    const [statusRows] = await mysqlPool.query(`
-      SELECT status, COUNT(*) AS count FROM books GROUP BY status
-    `);
-
-    const total_members = Number(membersRow[0]?.count ?? 0);
-    const total_books = Number(booksRow[0]?.count ?? 0);
-    const active_loans = Number(activeLoansRow[0]?.count ?? 0);
-    const overdue_books = Number(overdueRow[0]?.count ?? 0);
-    const total_fines_paid = Number(finesPaidRow[0]?.total ?? 0);
-    const total_fines_unpaid = Number(finesUnpaidRow[0]?.total ?? 0);
-    const category_breakdown = (categoryRows || []).map((r) => ({
-      category_name: r.category_name,
-      count: Number(r.count ?? 0),
-    }));
-    const loan_status_breakdown = (statusRows || []).map((r) => ({
-      status: r.status,
-      count: Number(r.count ?? 0),
-    }));
 
     res.json({
-      total_members,
-      total_books,
-      active_loans,
-      overdue_books,
-      total_fines_paid,
-      total_fines_unpaid,
-      category_breakdown,
-      loan_status_breakdown,
+      total_books: bookCount.total,
+      total_members: memberCount.total,
+      active_loans: activeLoans.total,
+      unpaid_fines: Number(unpaidFines.total),
+      overdue_loans: overdueLoans.total,
+      today_loans: todayLoans.total,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/dashboard/popular-books - Most borrowed books this month (bar chart)
+router.get('/popular-books', async (req, res, next) => {
+  try {
+    const [rows] = await mysqlPool.query(`
+      SELECT b.title, COUNT(*) AS borrow_count
+      FROM loans l
+      JOIN books b ON l.book_id = b.book_id
+      WHERE l.borrowed_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+      GROUP BY b.book_id, b.title
+      ORDER BY borrow_count DESC
+      LIMIT 10
+    `);
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/dashboard/loan-activity - Loan activity over last 14 days (line chart)
+router.get('/loan-activity', async (req, res, next) => {
+  try {
+    const [rows] = await mysqlPool.query(`
+      SELECT DATE(borrowed_at) AS date, COUNT(*) AS count
+      FROM loans
+      WHERE borrowed_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+      GROUP BY DATE(borrowed_at)
+      ORDER BY date
+    `);
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/dashboard/category-distribution - Book count by category (pie/donut)
+router.get('/category-distribution', async (req, res, next) => {
+  try {
+    const [rows] = await mysqlPool.query(`
+      SELECT c.category AS name, COUNT(*) AS value
+      FROM books b
+      JOIN categories c ON b.category_id = c.category_id
+      GROUP BY c.category_id, c.category
+      ORDER BY value DESC
+      LIMIT 8
+    `);
+    res.json(rows);
   } catch (err) {
     next(err);
   }

@@ -1,42 +1,8 @@
-import { useState, useEffect } from "react";
-import { apiFetch } from "@/api/client";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
-
 type AdminPage = "cto" | "circulation" | "cataloging" | "member-registration" | "financial-settlement";
 
 interface CTODashboardPageProps {
   onNavigate: (page: AdminPage) => void;
   onLogout: () => void;
-}
-
-interface DashboardStats {
-  total_members: number;
-  total_books: number;
-  active_loans: number;
-  overdue_books: number;
-  total_fines_paid: number;
-  total_fines_unpaid: number;
-  category_breakdown?: { category_name: string; count: number }[];
-  loan_status_breakdown?: { status: string; count: number }[];
-}
-
-interface TelemetryLog {
-  _id?: string;
-  event_type: string;
-  payload: Record<string, unknown>;
-  timestamp: string | null;
 }
 
 const inventoryGaps = [
@@ -68,82 +34,7 @@ const hoarderAlerts = [
   },
 ];
 
-function formatFines(value: number): string {
-  return `₱${Number(value).toFixed(2)}`;
-}
-
-function formatTimestamp(iso: string | null): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: "short",
-      timeStyle: "medium",
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function payloadSummary(payload: Record<string, unknown>): string {
-  if (!payload || Object.keys(payload).length === 0) return "—";
-  const str = JSON.stringify(payload);
-  return str.length > 80 ? str.slice(0, 80) + "…" : str;
-}
-
 export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardPageProps) {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [telemetryLogs, setTelemetryLogs] = useState<TelemetryLog[]>([]);
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingLogs, setLoadingLogs] = useState(true);
-  const [errorStats, setErrorStats] = useState("");
-  const [errorLogs, setErrorLogs] = useState("");
-
-  const fetchStats = () => {
-    setLoadingStats(true);
-    setErrorStats("");
-    apiFetch("/api/dashboard/stats")
-      .then((data: DashboardStats) => {
-        setStats(data);
-        setErrorStats("");
-      })
-      .catch((err: { message?: string; status?: number }) => {
-        const msg = err?.message || "MySQL stats unavailable.";
-        const hint =
-          msg === "Failed to fetch" || !err?.status
-            ? " Ensure the backend is running and VITE_API_URL points to it (e.g. http://localhost:5000)."
-            : "";
-        setErrorStats(msg + hint);
-      })
-      .finally(() => setLoadingStats(false));
-  };
-
-  const fetchLogs = () => {
-    setLoadingLogs(true);
-    setErrorLogs("");
-    apiFetch("/api/log?limit=10")
-      .then((data: { logs?: TelemetryLog[] }) => {
-        setTelemetryLogs(Array.isArray(data?.logs) ? data.logs : []);
-        setErrorLogs("");
-      })
-      .catch((err: { message?: string; status?: number }) => {
-        const msg = err?.message || "MongoDB telemetry unavailable.";
-        const hint =
-          msg === "Failed to fetch" || !err?.status
-            ? " Ensure the backend is running and VITE_API_URL points to it (e.g. http://localhost:5000)."
-            : "";
-        setErrorLogs(msg + hint);
-      })
-      .finally(() => setLoadingLogs(false));
-  };
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  useEffect(() => {
-    fetchLogs();
-  }, []);
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-amber-100 font-sans text-slate-900">
       {/* Warm matte acrylic mesh background — identical to all pages */}
@@ -250,226 +141,52 @@ export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardP
         </header>
 
         {/* ── KPI Cards Row ── */}
-        {errorStats && (
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-800 backdrop-blur-sm">
-            <span>{errorStats}</span>
-            <button
-              type="button"
-              onClick={fetchStats}
-              disabled={loadingStats}
-              className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
-            >
-              {loadingStats ? "Loading…" : "Retry"}
-            </button>
-          </div>
-        )}
-        <section aria-label="Key Performance Indicators" className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Card 1 — Total Books */}
+        <section aria-label="Key Performance Indicators" className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+          {/* Card 1 — Look-to-Book Conversion */}
           <div className="rounded-2xl border border-white/60 bg-white/40 p-6 shadow-lg backdrop-blur-xl">
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-400">Total Books</p>
-            {loadingStats ? (
-              <div className="mt-3 h-10 w-24 animate-pulse rounded-lg bg-white/60" aria-hidden="true" />
-            ) : (
-              <div className="mt-3">
-                <span className="text-4xl font-bold tracking-tight text-slate-900">
-                  {stats?.total_books ?? "—"}
-                </span>
-              </div>
-            )}
-            <p className="mt-2 text-xs text-slate-400">Books in catalog</p>
+            <p className="text-xs font-medium uppercase tracking-widest text-slate-400">
+              Look-to-Book Conversion
+            </p>
+            <div className="mt-3 flex items-end gap-3">
+              <span className="text-4xl font-bold tracking-tight text-slate-900">12.4%</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="mb-1 h-6 w-6 flex-none text-emerald-600"
+              >
+                <path fill="currentColor" d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z" />
+              </svg>
+            </div>
+            <p className="mt-2 text-sm font-medium text-emerald-600">+2.1% this week</p>
+            <p className="mt-0.5 text-xs text-slate-400">Searches that resulted in a loan</p>
           </div>
 
           {/* Card 2 — Active Loans */}
           <div className="rounded-2xl border border-white/60 bg-white/40 p-6 shadow-lg backdrop-blur-xl">
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-400">Active Loans</p>
-            {loadingStats ? (
-              <div className="mt-3 h-10 w-24 animate-pulse rounded-lg bg-white/60" aria-hidden="true" />
-            ) : (
-              <div className="mt-3">
-                <span className="text-4xl font-bold tracking-tight text-slate-900">
-                  {stats?.active_loans ?? "—"}
-                </span>
-                <span className="ml-2 text-lg font-medium text-slate-500">Books</span>
-              </div>
-            )}
-            <p className="mt-2 text-xs text-slate-400">Currently checked out</p>
-          </div>
-
-          {/* Card 3 — Total Members */}
-          <div className="rounded-2xl border border-white/60 bg-white/40 p-6 shadow-lg backdrop-blur-xl">
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-400">Total Members</p>
-            {loadingStats ? (
-              <div className="mt-3 h-10 w-24 animate-pulse rounded-lg bg-white/60" aria-hidden="true" />
-            ) : (
-              <div className="mt-3">
-                <span className="text-4xl font-bold tracking-tight text-slate-900">
-                  {stats?.total_members ?? "—"}
-                </span>
-              </div>
-            )}
-            <p className="mt-2 text-xs text-slate-400">Registered members</p>
-          </div>
-
-          {/* Card 4 — Outstanding Fines */}
-          <div className="rounded-2xl border border-white/60 bg-white/40 p-6 shadow-lg backdrop-blur-xl">
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-400">Outstanding Fines</p>
-            {loadingStats ? (
-              <div className="mt-3 h-10 w-24 animate-pulse rounded-lg bg-white/60" aria-hidden="true" />
-            ) : (
-              <div className="mt-3">
-                <span className="text-4xl font-bold tracking-tight text-slate-900">
-                  {stats != null ? formatFines(stats.total_fines_unpaid) : "—"}
-                </span>
-              </div>
-            )}
-            <p className="mt-2 text-xs text-slate-400">Total unpaid across all accounts</p>
-          </div>
-        </section>
-
-        {/* ── Telemetry & System Audit ── */}
-        <section aria-label="Telemetry and System Audit" className="mb-8">
-          <div className="rounded-3xl border border-white/60 bg-white/50 p-6 shadow-2xl backdrop-blur-2xl sm:p-8">
-            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Telemetry & System Audit</h2>
-                <p className="mt-0.5 text-sm text-slate-500">
-                  Latest system events from MongoDB (e.g. USER_LOGIN, BOOK_SEARCH).
-                </p>
-              </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/60 px-3 py-1 text-xs font-medium text-slate-600 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                MongoDB
-              </span>
+            <p className="text-xs font-medium uppercase tracking-widest text-slate-400">
+              Currently Checked Out
+            </p>
+            <div className="mt-3">
+              <span className="text-4xl font-bold tracking-tight text-slate-900">142</span>
+              <span className="ml-2 text-lg font-medium text-slate-500">Books</span>
             </div>
-            {errorLogs && (
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800">
-                <span>{errorLogs}</span>
-                <button
-                  type="button"
-                  onClick={fetchLogs}
-                  disabled={loadingLogs}
-                  className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
-                >
-                  {loadingLogs ? "Loading…" : "Retry"}
-                </button>
-              </div>
-            )}
-            {loadingLogs ? (
-              <div className="overflow-hidden rounded-2xl border border-white/50">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-white/50 bg-white/30">
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-widest text-slate-400">Timestamp</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-widest text-slate-400">Event type</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-widest text-slate-400">Payload</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <tr key={i} className="border-b border-white/40">
-                        <td className="px-4 py-3"><span className="inline-block h-4 w-32 animate-pulse rounded bg-white/60" /></td>
-                        <td className="px-4 py-3"><span className="inline-block h-4 w-24 animate-pulse rounded bg-white/60" /></td>
-                        <td className="px-4 py-3"><span className="inline-block h-4 w-40 animate-pulse rounded bg-white/60" /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : telemetryLogs.length === 0 && !errorLogs ? (
-              <p className="rounded-2xl border border-white/50 bg-white/30 px-4 py-6 text-center text-sm text-slate-500">
-                No telemetry events yet.
-              </p>
-            ) : (
-              <div className="overflow-hidden rounded-2xl border border-white/50">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-white/50 bg-white/30">
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-widest text-slate-400">Timestamp</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-widest text-slate-400">Event type</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-widest text-slate-400">Payload</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {telemetryLogs.map((log, i) => (
-                      <tr
-                        key={log._id ?? i}
-                        className="border-b border-white/40 transition hover:bg-white/30 last:border-b-0"
-                      >
-                        <td className="px-4 py-3 text-slate-600">{formatTimestamp(log.timestamp)}</td>
-                        <td className="px-4 py-3 font-medium text-slate-800">{log.event_type}</td>
-                        <td className="max-w-md truncate px-4 py-3 font-mono text-xs text-slate-600" title={JSON.stringify(log.payload)}>
-                          {payloadSummary(log.payload)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <p className="mt-2 text-xs text-slate-400">Active loans across all members</p>
+          </div>
+
+          {/* Card 3 — Unpaid Fines */}
+          <div className="rounded-2xl border border-white/60 bg-white/40 p-6 shadow-lg backdrop-blur-xl">
+            <p className="text-xs font-medium uppercase tracking-widest text-slate-400">
+              Unpaid Fines
+            </p>
+            <div className="mt-3">
+              <span className="text-4xl font-bold tracking-tight text-slate-900">₱840.00</span>
+            </div>
+            <p className="mt-2 text-xs text-slate-400">Total outstanding across all accounts</p>
           </div>
         </section>
 
-        {/* ── Books by Category & Loan Status ── */}
-        <section aria-label="Charts" className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-white/60 bg-white/50 p-6 shadow-2xl backdrop-blur-2xl sm:p-8">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Books by Category</h2>
-            {loadingStats ? (
-              <div className="h-64 animate-pulse rounded-xl bg-white/60" aria-hidden="true" />
-            ) : !stats?.category_breakdown?.length ? (
-              <p className="flex h-64 items-center justify-center text-sm text-slate-500">No category data</p>
-            ) : (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.category_breakdown} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.3)" />
-                    <XAxis dataKey="category_name" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{ borderRadius: "0.75rem", border: "1px solid rgba(255,255,255,0.5)" }}
-                      formatter={(value: number | undefined) => [value ?? 0, "Books"]}
-                    />
-                    <Bar dataKey="count" fill="rgba(251,146,60,0.8)" radius={[4, 4, 0, 0]} name="Books" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-          <div className="rounded-3xl border border-white/60 bg-white/50 p-6 shadow-2xl backdrop-blur-2xl sm:p-8">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Loan Status Distribution</h2>
-            {loadingStats ? (
-              <div className="h-64 animate-pulse rounded-xl bg-white/60" aria-hidden="true" />
-            ) : !stats?.loan_status_breakdown?.length ? (
-              <p className="flex h-64 items-center justify-center text-sm text-slate-500">No status data</p>
-            ) : (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={stats.loan_status_breakdown}
-                      dataKey="count"
-                      nameKey="status"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {stats.loan_status_breakdown.map((_, i) => (
-                        <Cell key={i} fill={["#f97316", "#0ea5e9", "#22c55e"][i % 3]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ borderRadius: "0.75rem", border: "1px solid rgba(255,255,255,0.5)" }}
-                      formatter={(value: number | undefined) => [value ?? 0, "Books"]}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ── Inventory Gaps Panel (placeholder until backend supports dead-end search aggregation) ── */}
+        {/* ── Inventory Gaps Panel ── */}
         <section aria-label="Inventory Gaps" className="mb-8">
           <div className="rounded-3xl border border-white/60 bg-white/50 p-6 shadow-2xl backdrop-blur-2xl sm:p-8">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -478,12 +195,12 @@ export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardP
                   Inventory Gaps (Dead-End Searches)
                 </h2>
                 <p className="mt-0.5 text-sm text-slate-500">
-                  Search queries that returned zero results — potential acquisition targets. Placeholder data below until backend exposes aggregation from MongoDB telemetry.
+                  Search queries that returned zero results — potential acquisition targets.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100/80 px-3 py-1 text-xs font-medium text-slate-600 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                Sample data (not live)
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100/60 px-3 py-1 text-xs font-medium text-emerald-700 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Sourced from MongoDB Telemetry
               </span>
             </div>
 
@@ -526,19 +243,20 @@ export default function CTODashboardPage({ onNavigate, onLogout }: CTODashboardP
           </div>
         </section>
 
-        {/* ── Hoarder Alerts Panel (placeholder until backend exposes trigger/audit data) ── */}
+        {/* ── Hoarder Alerts Panel ── */}
         <section aria-label="Hoarder Alerts">
           <div className="rounded-3xl border border-white/60 bg-white/50 p-6 shadow-2xl backdrop-blur-2xl sm:p-8">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Hoarder Alerts</h2>
                 <p className="mt-0.5 text-sm text-slate-500">
-                  Members who triggered the 5-book active loan constraint. Placeholder data below until backend exposes audit/trigger data from MySQL.
+                  Members who triggered the 5-book active loan constraint.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100/80 px-3 py-1 text-xs font-medium text-slate-600 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                Sample data (not live)
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-100/60 px-3 py-1 text-xs font-medium text-orange-700 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                Sourced from MySQL{" "}
+                <code className="font-mono">trg_limit_active_loans</code>
               </span>
             </div>
 

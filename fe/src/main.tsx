@@ -6,8 +6,6 @@ import AdminApp from './AdminApp.tsx'
 import MemberLogin from './MemberLogin.tsx'
 import StaffLogin from './StaffLogin.tsx'
 import PublicRegisterPage from './PublicRegisterPage.tsx'
-import ProtectedRoute from './ProtectedRoute.tsx'
-import { AuthProvider } from './context/AuthContext.tsx'
 
 const pathname = window.location.pathname
 
@@ -22,19 +20,13 @@ function Root() {
     return <PublicRegisterPage />
   }
   if (pathname.startsWith('/admin')) {
-    return (
-      <ProtectedRoute>
-        <AdminApp />
-      </ProtectedRoute>
-    )
+    return <AdminApp />
   }
   return <App />
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <Root />
-    </AuthProvider>
+    <Root />
   </StrictMode>,
 )

@@ -3,25 +3,6 @@ import UserTelemetryLog from '../models/UserTelemetryLog.js';
 
 const router = express.Router();
 
-router.get('/', async (req, res, next) => {
-  try {
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
-    const docs = await UserTelemetryLog.find()
-      .sort({ timestamp: -1 })
-      .limit(limit)
-      .lean();
-    const logs = docs.map((d) => ({
-      _id: d._id,
-      event_type: d.event_type,
-      payload: d.payload ?? {},
-      timestamp: d.timestamp ? new Date(d.timestamp).toISOString() : null,
-    }));
-    res.json({ logs });
-  } catch (err) {
-    next(err);
-  }
-});
-
 router.post('/', async (req, res, next) => {
   try {
     const { event_type, payload, timestamp } = req.body || {};

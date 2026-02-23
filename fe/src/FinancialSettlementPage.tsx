@@ -17,52 +17,36 @@ interface Fine {
   is_paid: boolean;
 }
 
-function mapFines(
-  data: { fine_id: number; loan_id: number; amount: number; is_paid: boolean; member_name?: string }[]
-): Fine[] {
-  return (data || []).map((row) => ({
-    fine_id: String(row.fine_id),
-    loan_id: String(row.loan_id),
-    member_name: row.member_name ?? "—",
-    amount: typeof row.amount === "number" ? `₱${row.amount.toFixed(2)}` : String(row.amount),
-    amountNum: Number(row.amount) || 0,
-    is_paid: Boolean(row.is_paid),
-  }));
-}
-
-async function fetchUnpaid() {
-  const data = await apiFetch("/api/fines/unpaid");
-  return mapFines(Array.isArray(data) ? data : []);
-}
-
 export default function FinancialSettlementPage({ onNavigate, onLogout }: FinancialSettlementPageProps) {
   const [fines, setFines] = useState<Fine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [settlingId, setSettlingId] = useState<string | null>(null);
-
-  const loadFines = () => {
-    setLoading(true);
-    setError("");
-    fetchUnpaid()
-      .then(setFines)
-      .catch((err: { message?: string }) => setError(err?.message || "Failed to load fines."))
-      .finally(() => setLoading(false));
-  };
 
   useEffect(() => {
-    loadFines();
+    apiFetch("/api/fines/unpaid")
+      .then((data: { fine_id: number; loan_id: number; amount: number; is_paid: boolean }[]) => {
+        const mapped: Fine[] = (data || []).map((row) => ({
+          fine_id: String(row.fine_id),
+          loan_id: String(row.loan_id),
+          member_name: "—",
+          amount: typeof row.amount === "number" ? `₱${row.amount.toFixed(2)}` : String(row.amount),
+          amountNum: Number(row.amount) || 0,
+          is_paid: Boolean(row.is_paid),
+        }));
+        setFines(mapped);
+      })
+      .catch((err: { message?: string }) => setError(err?.message || "Failed to load fines."))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSettle = (fine_id: string) => {
-    setSettlingId(fine_id);
-    setError("");
-    apiFetch(`/api/fines/${fine_id}`, { method: "PATCH" })
+    apiFetch("/api/fines/settle/" + fine_id, { method: "PUT" })
       .then(() => {
-        loadFines();
+        setFines((prev) =>
+          prev.map((f) => (f.fine_id === fine_id ? { ...f, is_paid: true } : f))
+        );
       })
-      .catch((err: { message?: string }) => setError(err?.message || "Failed to settle fine."))
-      .finally(() => setSettlingId(null));
+      .catch((err: { message?: string }) => setError(err?.message || "Failed to settle fine."));
   };
 
   const totalUnpaid = fines
@@ -295,11 +279,10 @@ export default function FinancialSettlementPage({ onNavigate, onLogout }: Financ
                       {!fine.is_paid ? (
                         <button
                           type="button"
-                          disabled={settlingId === fine.fine_id}
                           onClick={() => handleSettle(fine.fine_id)}
-                          className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition duration-150 ease-out hover:bg-slate-800 hover:shadow-md active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/80 disabled:opacity-60 disabled:pointer-events-none"
+                          className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition duration-150 ease-out hover:bg-slate-800 hover:shadow-md active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/80"
                         >
-                          {settlingId === fine.fine_id ? "Settling…" : "Mark as Paid"}
+                          Settle
                         </button>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>

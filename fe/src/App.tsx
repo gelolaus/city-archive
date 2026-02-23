@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import BookListPage from "./BookListPage";
 import BookDetailsPage from "./BookDetailsPage";
-import Navbar from "./components/Navbar";
 
 type Page = "home" | "booklist" | "bookdetails";
 
@@ -30,6 +29,7 @@ function App() {
       <BookDetailsPage
         bookId={selectedBookId!}
         onBack={() => setPage("booklist")}
+        onLogin={() => { window.location.href = "/login"; }}
       />
     );
   }
@@ -41,6 +41,7 @@ function App() {
         onBack={() => setPage("home")}
         onSearch={(query) => navigateToBookList(query)}
         onSelectBook={navigateToBookDetails}
+        onLogin={() => { window.location.href = "/login"; }}
       />
     );
   }
@@ -57,10 +58,14 @@ function App() {
       </div>
 
       <div className="relative flex min-h-screen flex-col px-4 sm:px-6 lg:px-8">
-        <Navbar
-          leftContent={
-            <>
+        {/* Navbar */}
+        <header className="flex justify-center pt-6 sm:pt-8">
+          <nav className="inline-flex w-full max-w-7xl items-center justify-between rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-2xl shadow-orange-200/60 ring-1 ring-white/50 backdrop-blur-2xl sm:px-6 sm:py-2.5">
+            <div className="text-sm font-semibold tracking-tight text-slate-800 sm:text-base">
               <span>City Archive</span>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => navigateToBookList("")}
@@ -68,9 +73,15 @@ function App() {
               >
                 Browse All
               </button>
-            </>
-          }
-        />
+              <a
+                href="/login"
+                className="inline-flex transform items-center rounded-full border border-white/60 bg-white/60 px-4 py-1.5 text-sm font-medium text-slate-800 shadow-sm transition duration-200 ease-out hover:-translate-y-px hover:bg-white/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 focus-visible:ring-offset-0"
+              >
+                Login
+              </a>
+            </div>
+          </nav>
+        </header>
 
         {/* Main hero */}
         <main className="flex flex-1 flex-col items-center justify-center pb-28 pt-10 sm:pb-32 sm:pt-12">

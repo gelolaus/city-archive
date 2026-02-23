@@ -23,12 +23,7 @@ router.post('/return', async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'loan_id is required.' });
     }
     await mysqlPool.query('CALL return_item(?)', [loan_id]);
-    const [fineRows] = await mysqlPool.query(
-      'SELECT amount FROM fines WHERE loan_id = ? ORDER BY fine_id DESC LIMIT 1',
-      [loan_id]
-    );
-    const fine_amount = fineRows.length > 0 ? Number(fineRows[0].amount) : undefined;
-    res.json({ status: 'ok', message: 'Return successful.', ...(fine_amount != null && { fine_amount }) });
+    res.json({ status: 'ok', message: 'Return successful.' });
   } catch (err) {
     next(err);
   }
