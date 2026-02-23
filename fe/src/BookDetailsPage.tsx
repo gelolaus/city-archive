@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/api/client";
+import { trackEvent } from "@/api/telemetry";
 
 interface BookDetail {
   book_id: number;
@@ -47,16 +48,9 @@ export default function BookDetailsPage({ bookId, onBack, onLogin }: BookDetails
   }, [bookId]);
 
   useEffect(() => {
-    if (bookId == null) return;
-    apiFetch("/api/log", {
-      method: "POST",
-      body: JSON.stringify({
-        event_type: "VIEW_DETAILS",
-        payload: { book_id: bookId },
-        timestamp: new Date().toISOString(),
-      }),
-    }).catch(() => {});
-  }, [bookId]);
+    if (!book) return;
+    trackEvent('VIEW_BOOK', { bookId, title: book.title });
+  }, [bookId, book]);
 
   const handleActionClick = () => {
     // Reserve / Borrow: could call POST /api/borrow when member context exists

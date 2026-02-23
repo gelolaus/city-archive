@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell,
 } from "recharts";
-import { BookOpen, Users, ArrowLeftRight, DollarSign, AlertTriangle, TrendingUp } from "lucide-react";
+import { BookOpen, Users, ArrowLeftRight, DollarSign, AlertTriangle, TrendingUp, Clock } from "lucide-react";
 
 interface Stats {
   total_books: number;
@@ -30,6 +30,12 @@ interface CategoryDist {
   value: number;
 }
 
+interface ViewCountItem {
+  bookId: number;
+  count: number;
+  title?: string | null;
+}
+
 const PIE_COLORS = ["#f59e0b", "#ef4444", "#3b82f6", "#10b981", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
 
 export default function AdminDashboard() {
@@ -37,6 +43,8 @@ export default function AdminDashboard() {
   const [popular, setPopular] = useState<PopularBook[]>([]);
   const [activity, setActivity] = useState<LoanActivity[]>([]);
   const [categories, setCategories] = useState<CategoryDist[]>([]);
+  const [averageReturnTimeDays, setAverageReturnTimeDays] = useState<number | null>(null);
+  const [mostViewedBooks, setMostViewedBooks] = useState<ViewCountItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,13 +54,19 @@ export default function AdminDashboard() {
       apiFetch("/api/dashboard/popular-books"),
       apiFetch("/api/dashboard/loan-activity"),
       apiFetch("/api/dashboard/category-distribution"),
+      apiFetch("/api/dashboard/analytics"),
     ])
-      .then(([s, p, a, c]) => {
+      .then(([s, p, a, c, analytics]) => {
         if (cancelled) return;
         setStats(s);
         setPopular(p);
         setActivity(a);
         setCategories(c);
+        if (analytics) {
+          setAverageReturnTimeDays(analytics.averageReturnTimeDays ?? null);
+          const viewCounts = analytics.bookViewCounts ?? [];
+          setMostViewedBooks(viewCounts.slice(0, 10));
+        }
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -74,6 +88,7 @@ export default function AdminDashboard() {
     { label: "Unpaid Fines", value: `₱${(stats?.unpaid_fines ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`, icon: DollarSign, color: "text-rose-600", bg: "bg-rose-100/60" },
     { label: "Overdue Loans", value: stats?.overdue_loans ?? 0, icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100/60" },
     { label: "Loans Today", value: stats?.today_loans ?? 0, icon: TrendingUp, color: "text-violet-600", bg: "bg-violet-100/60" },
+    { label: "Average Borrow Duration", value: averageReturnTimeDays != null ? `${averageReturnTimeDays} Days` : "—", icon: Clock, color: "text-teal-600", bg: "bg-teal-100/60" },
   ];
 
   return (
@@ -85,7 +100,7 @@ export default function AdminDashboard() {
       </header>
 
       {/* KPI Cards */}
-      <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
         {kpis.map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="rounded-2xl border border-white/60 bg-white/40 p-5 shadow-lg backdrop-blur-xl">
             <div className="flex items-center justify-between">
@@ -98,6 +113,24 @@ export default function AdminDashboard() {
           </div>
         ))}
       </section>
+
+      {/* Most Viewed Books */}
+      {mostViewedBooks.length > 0 && (
+        <div className="mb-8 rounded-3xl border border-white/60 bg-white/50 p-6 shadow-2xl backdrop-blur-2xl">
+          <h2 className="mb-1 text-lg font-semibold text-slate-900">Most Viewed Books</h2>
+          <p className="mb-5 text-xs text-slate-400">Top 10 by page views</p>
+          <ul className="space-y-2">
+            {mostViewedBooks.map((item) => (
+              <li key={item.bookId} className="flex items-center justify-between rounded-xl border border-white/40 bg-white/30 px-4 py-2.5 text-sm">
+                <span className="font-medium text-slate-700 truncate flex-1 mr-3">
+                  {item.title ?? `Book #${item.bookId}`}
+                </span>
+                <span className="text-slate-500 font-mono text-xs shrink-0">{item.count} views</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">

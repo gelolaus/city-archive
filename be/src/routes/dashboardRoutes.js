@@ -1,5 +1,6 @@
 import express from 'express';
 import { mysqlPool } from '../config/db.js';
+import UserTelemetryLog from '../models/UserTelemetryLog.js';
 
 const router = express.Router();
 
@@ -24,6 +25,57 @@ router.get('/stats', async (req, res, next) => {
       unpaid_fines: Number(unpaidFines.total),
       overdue_loans: overdueLoans.total,
       today_loans: todayLoans.total,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/dashboard/analytics - Book view counts (MongoDB), borrow counts (MySQL), average return time (MySQL)
+router.get('/analytics', async (req, res, next) => {
+  try {
+    const [viewCounts, [borrowRows], [avgReturnRows]] = await Promise.all([
+      UserTelemetryLog.aggregate([
+        { $match: { event_type: 'VIEW_BOOK' } },
+        { $group: { _id: '$payload.bookId', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      mysqlPool.query('SELECT book_id, COUNT(*) AS count FROM loans GROUP BY book_id'),
+      mysqlPool.query(
+        'SELECT ROUND(AVG(DATEDIFF(returned_at, borrowed_at)), 1) AS avg_days FROM loans WHERE returned_at IS NOT NULL'
+      ),
+    ]);
+
+    const bookViewCounts = viewCounts.map((doc) => ({
+      bookId: Number(doc._id),
+      count: doc.count,
+    }));
+
+    if (bookViewCounts.length > 0) {
+      const ids = bookViewCounts.map((v) => v.bookId).join(',');
+      const [titleRows] = await mysqlPool.query(
+        `SELECT book_id, title FROM books WHERE book_id IN (${ids})`
+      );
+      const titleByBookId = Object.fromEntries(
+        (titleRows || []).map((r: { book_id: number; title: string }) => [r.book_id, r.title])
+      );
+      bookViewCounts.forEach((v) => {
+        (v as { title?: string }).title = titleByBookId[v.bookId] ?? null;
+      });
+    }
+
+    const bookBorrowCounts = (borrowRows || []).map((row) => ({
+      book_id: row.book_id,
+      count: row.count,
+    }));
+
+    const avgRow = Array.isArray(avgReturnRows) ? avgReturnRows[0] : null;
+    const averageReturnTimeDays = avgRow?.avg_days != null ? Number(avgRow.avg_days) : null;
+
+    res.json({
+      bookViewCounts,
+      bookBorrowCounts,
+      averageReturnTimeDays,
     });
   } catch (err) {
     next(err);

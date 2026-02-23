@@ -15,6 +15,8 @@ interface Book {
 export default function AdminBooks() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewCountByBookId, setViewCountByBookId] = useState<Record<number, number>>({});
+  const [borrowCountByBookId, setBorrowCountByBookId] = useState<Record<number, number>>({});
   const [searchQ, setSearchQ] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -46,6 +48,19 @@ export default function AdminBooks() {
   };
 
   useEffect(() => { fetchBooks(); }, []);
+
+  useEffect(() => {
+    apiFetch("/api/dashboard/analytics")
+      .then((data: { bookViewCounts?: { bookId: number; count: number }[]; bookBorrowCounts?: { book_id: number; count: number }[] }) => {
+        const viewMap: Record<number, number> = {};
+        (data.bookViewCounts || []).forEach(({ bookId, count }) => { viewMap[bookId] = count; });
+        setViewCountByBookId(viewMap);
+        const borrowMap: Record<number, number> = {};
+        (data.bookBorrowCounts || []).forEach(({ book_id, count }) => { borrowMap[book_id] = count; });
+        setBorrowCountByBookId(borrowMap);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -202,6 +217,8 @@ export default function AdminBooks() {
                 <th className="px-6 py-4">ISBN</th>
                 <th className="px-6 py-4">Category</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Total Views</th>
+                <th className="px-6 py-4">Times Borrowed</th>
               </tr>
             </thead>
             <tbody>
@@ -217,6 +234,8 @@ export default function AdminBooks() {
                   <td className="whitespace-nowrap px-6 py-3.5">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(b.status)}`}>{b.status}</span>
                   </td>
+                  <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{viewCountByBookId[b.book_id] ?? 0}</td>
+                  <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{borrowCountByBookId[b.book_id] ?? 0}</td>
                 </tr>
               ))}
             </tbody>

@@ -3,6 +3,23 @@ import UserTelemetryLog from '../models/UserTelemetryLog.js';
 
 const router = express.Router();
 
+router.post('/telemetry', async (req, res, next) => {
+  try {
+    const { action, metadata } = req.body || {};
+    if (!action) {
+      return res.status(400).json({ status: 'error', message: 'action is required.' });
+    }
+    const doc = await UserTelemetryLog.create({
+      event_type: action,
+      payload: metadata ?? {},
+      timestamp: new Date(),
+    });
+    res.status(201).json({ status: 'ok', id: doc._id });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/', async (req, res, next) => {
   try {
     const { event_type, payload, timestamp } = req.body || {};

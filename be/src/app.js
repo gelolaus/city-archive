@@ -46,6 +46,7 @@ app.get('/api/health', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/log', logRoutes);
+app.use('/api/logs', logRoutes);
 app.use('/api/catalog', catalogRoutes);
 app.use('/api', circulationRoutes);
 app.use('/api/members', membersRoutes);
