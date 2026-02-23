@@ -1,0 +1,43 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+.next/
+.nuxt/
+out/
+
+# Coverage and test outputs
+coverage/
+.nyc_output/
+jest-html-reporters-*.html
+
+# Logs
+logs/
+*.log
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Misc
+.eslintcache
+.turbo/
+.cache/
+.parcel-cache/
+
