@@ -49,7 +49,10 @@ router.post('/login/staff', async (req, res, next) => {
     }
     const { password: _, ...safe } = staff;
     req.session.staffId = staff.librarian_id;
-    res.json({ status: 'ok', staff: safe });
+    req.session.save((err) => {
+      if (err) return next(err);
+      res.json({ status: 'ok', staff: safe });
+    });
   } catch (err) {
     next(err);
   }

@@ -19,6 +19,9 @@ import loansRoutes from './routes/loansRoutes.js';
 
 const app = express();
 
+// Trust first proxy (e.g. Vite dev server) so session cookies work when proxying
+app.set('trust proxy', 1);
+
 connectMongo();
 
 const corsOrigin = process.env.FRONTEND_URL || true;
