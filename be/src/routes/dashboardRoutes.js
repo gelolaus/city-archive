@@ -56,11 +56,13 @@ router.get('/analytics', async (req, res, next) => {
       const [titleRows] = await mysqlPool.query(
         `SELECT book_id, title FROM books WHERE book_id IN (${ids})`
       );
+      
       const titleByBookId = Object.fromEntries(
-        (titleRows || []).map((r: { book_id: number; title: string }) => [r.book_id, r.title])
+        (titleRows || []).map((r) => [r.book_id, r.title])
       );
+      
       bookViewCounts.forEach((v) => {
-        (v as { title?: string }).title = titleByBookId[v.bookId] ?? null;
+        v.title = titleByBookId[v.bookId] ?? null;
       });
     }
 
