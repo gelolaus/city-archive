@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import AdminApp from './AdminApp.tsx'
+import AdminGate from './AdminGate.tsx'
 import MemberLogin from './MemberLogin.tsx'
 import StaffLogin from './StaffLogin.tsx'
 import PublicRegisterPage from './PublicRegisterPage.tsx'
@@ -20,7 +20,7 @@ function Root() {
     return <PublicRegisterPage />
   }
   if (pathname.startsWith('/admin')) {
-    return <AdminApp />
+    return <AdminGate />
   }
   return <App />
 }

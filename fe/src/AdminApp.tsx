@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiFetch } from "@/api/client";
 import AdminLayout, { type AdminPage } from "./admin/AdminLayout";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminMembers from "./admin/AdminMembers";
@@ -19,7 +20,12 @@ const PAGE_COMPONENT: Record<AdminPage, React.FC> = {
 export default function AdminApp() {
   const [adminPage, setAdminPage] = useState<AdminPage>("dashboard");
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiFetch("/api/auth/logout/staff", { method: "POST", credentials: "include" });
+    } catch {
+      // ignore
+    }
     window.location.href = "/";
   };
 

@@ -1,5 +1,6 @@
 import express from 'express';
 import { mysqlPool } from '../config/db.js';
+import requireStaff from '../middleware/requireStaff.js';
 
 const router = express.Router();
 
@@ -47,10 +48,24 @@ router.post('/login/staff', async (req, res, next) => {
       return res.status(401).json({ status: 'error', message: 'Invalid email or password.' });
     }
     const { password: _, ...safe } = staff;
+    req.session.staffId = staff.librarian_id;
     res.json({ status: 'ok', staff: safe });
   } catch (err) {
     next(err);
   }
+});
+
+// GET /api/auth/staff/check - 200 if logged in as staff, 401 otherwise (for admin UI gate)
+router.get('/staff/check', requireStaff, (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// POST /api/auth/logout/staff - Destroy staff session
+router.post('/logout/staff', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) return res.status(500).json({ status: 'error', message: 'Logout failed.' });
+    res.json({ status: 'ok' });
+  });
 });
 
 export default router;
