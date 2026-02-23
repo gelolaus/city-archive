@@ -17,7 +17,7 @@ router.post('/login/member', async (req, res, next) => {
       return res.status(401).json({ status: 'error', message: 'Invalid email or password.' });
     }
     const member = rows[0];
-    const match = member.password === password;
+    const match = member.password_hash === password;
     if (!match) {
       return res.status(401).json({ status: 'error', message: 'Invalid email or password.' });
     }
@@ -42,7 +42,7 @@ router.post('/login/staff', async (req, res, next) => {
       return res.status(401).json({ status: 'error', message: 'Invalid email or password.' });
     }
     const staff = rows[0];
-    const match = staff.password === password;
+    const match = staff.password_hash === password;
     if (!match) {
       return res.status(401).json({ status: 'error', message: 'Invalid email or password.' });
     }
