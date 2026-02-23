@@ -10,7 +10,7 @@ router.get('/', async (req, res, next) => {
     let query = `
       SELECT m.member_id, m.first_name, m.last_name, m.email, m.phone, m.created_at,
              COUNT(l.loan_id) AS total_loans,
-             SUM(CASE WHEN l.returned_at IS NULL THEN 1 ELSE 0 END) AS active_loans
+             SUM(CASE WHEN l.return_date IS NULL THEN 1 ELSE 0 END) AS active_loans
       FROM members m
       LEFT JOIN loans l ON m.member_id = l.member_id
     `;
