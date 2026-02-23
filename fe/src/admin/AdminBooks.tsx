@@ -47,25 +47,29 @@ export default function AdminBooks() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchBooks(); }, []);
-
-  useEffect(() => {
+  const fetchAnalytics = () => {
     apiFetch("/api/dashboard/analytics")
       .then((data: { bookViewCounts?: { bookId: number; count: number }[]; bookBorrowCounts?: { book_id: number; count: number }[] }) => {
         const viewMap: Record<number, number> = {};
-        (data.bookViewCounts || []).forEach(({ bookId, count }) => { viewMap[bookId] = count; });
+        (data.bookViewCounts || []).forEach(({ bookId, count }) => { viewMap[Number(bookId)] = count; });
         setViewCountByBookId(viewMap);
         const borrowMap: Record<number, number> = {};
-        (data.bookBorrowCounts || []).forEach(({ book_id, count }) => { borrowMap[book_id] = count; });
+        (data.bookBorrowCounts || []).forEach(({ book_id, count }) => { borrowMap[Number(book_id)] = count; });
         setBorrowCountByBookId(borrowMap);
       })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchBooks();
+    fetchAnalytics();
   }, []);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     setSearchQ(searchInput.trim());
     fetchBooks(searchInput.trim());
+    fetchAnalytics();
   };
 
   const filtered = searchQ
@@ -234,8 +238,8 @@ export default function AdminBooks() {
                   <td className="whitespace-nowrap px-6 py-3.5">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(b.status)}`}>{b.status}</span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{viewCountByBookId[b.book_id] ?? 0}</td>
-                  <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{borrowCountByBookId[b.book_id] ?? 0}</td>
+                  <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{viewCountByBookId[Number(b.book_id)] ?? 0}</td>
+                  <td className="whitespace-nowrap px-6 py-3.5 text-slate-600">{borrowCountByBookId[Number(b.book_id)] ?? 0}</td>
                 </tr>
               ))}
             </tbody>

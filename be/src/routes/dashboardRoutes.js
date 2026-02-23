@@ -36,8 +36,14 @@ router.get('/analytics', async (req, res, next) => {
   try {
     const [viewCounts, [borrowRows], [avgReturnRows]] = await Promise.all([
       UserTelemetryLog.aggregate([
-        { $match: { event_type: 'VIEW_BOOK' } },
-        { $group: { _id: '$payload.bookId', count: { $sum: 1 } } },
+        { $match: { event_type: { $in: ['VIEW_BOOK', 'VIEW_DETAILS'] } } },
+        {
+          $addFields: {
+            bookId: { $ifNull: ['$payload.bookId', '$payload.book_id'] },
+          },
+        },
+        { $match: { bookId: { $exists: true, $ne: null } } },
+        { $group: { _id: '$bookId', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
       mysqlPool.query('SELECT book_id, COUNT(*) AS count FROM loans GROUP BY book_id'),
@@ -46,29 +52,35 @@ router.get('/analytics', async (req, res, next) => {
       ),
     ]);
 
-    const bookViewCounts = viewCounts.map((doc) => ({
-      bookId: Number(doc._id),
-      count: doc.count,
-    }));
+    const bookViewCounts = viewCounts
+      .map((doc) => {
+        const rawId = doc._id;
+        const bookId = typeof rawId === 'number' && !Number.isNaN(rawId)
+          ? rawId
+          : parseInt(String(rawId), 10);
+        if (Number.isNaN(bookId)) return null;
+        return { bookId, count: doc.count };
+      })
+      .filter(Boolean);
 
     if (bookViewCounts.length > 0) {
       const ids = bookViewCounts.map((v) => v.bookId).join(',');
       const [titleRows] = await mysqlPool.query(
         `SELECT book_id, title FROM books WHERE book_id IN (${ids})`
       );
-      
+
       const titleByBookId = Object.fromEntries(
         (titleRows || []).map((r) => [r.book_id, r.title])
       );
-      
+
       bookViewCounts.forEach((v) => {
         v.title = titleByBookId[v.bookId] ?? null;
       });
     }
 
     const bookBorrowCounts = (borrowRows || []).map((row) => ({
-      book_id: row.book_id,
-      count: row.count,
+      book_id: Number(row.book_id),
+      count: Number(row.count),
     }));
 
     const avgRow = Array.isArray(avgReturnRows) ? avgReturnRows[0] : null;
