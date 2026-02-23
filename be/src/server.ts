@@ -10,6 +10,7 @@ import { connectMySQL } from './config/db-mysql';
 import memberRoutes from './routes/memberRoutes';
 import bookRoutes from './routes/bookRoutes';
 import librarianRoutes from './routes/librarianRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ connectMySQL();
 app.use('/api/members', memberRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/librarian', librarianRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Health Check Route
 app.get('/api/health', (req: Request, res: Response) => {

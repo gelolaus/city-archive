@@ -38,7 +38,7 @@ Content-Type: application/json
 x-session-id: {{sessionId}}
 
 {
-    "identifier": "ajblaus", 
+    "identifier": "alaus2", 
     "password": "StrongPassword@2026"
 }
 
@@ -84,19 +84,24 @@ GET {{baseUrl}}/health
 # For now, let's assume Author ID 1 and Category ID 1 exist from our earlier SQL seeding.
 
 ### Test 8: Add a New Book (Librarian Operation)
+### Test 8: Add a New Book (Librarian Operation with JWT)
 POST {{baseUrl}}/librarian/add-book
 Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Miwicm9sZSI6Im1lbWJlciIsImlhdCI6MTc3MTg1MzkyMiwiZXhwIjoxNzcxODgyNzIyfQ.d929lcJkfxbI6HCigRQpXdFIdIEslIFmyMZAcDIpP8I
 
 {
     "authorId": 1,
     "categoryId": 1,
-    "title": "Noli Me Tangere",
-    "isbn": "978-1234567890",
-    "synopsis": "A masterpiece of Philippine literature.",
-    "totalCopies": 5
+    "title": "El Filibusterismo",
+    "isbn": "978-0987654321",
+    "synopsis": "The dark and gripping sequel.",
+    "totalCopies": 3
 }
 
 ### Test 9: Return a Book (MySQL Logic + Mongo Analytics)
 # Replace '1' with your actual loanId from MySQL
 POST {{baseUrl}}/books/return/3
 Content-Type: application/json
+
+### Test 10: Get Executive Analytics Report
+GET {{baseUrl}}/analytics/dashboard

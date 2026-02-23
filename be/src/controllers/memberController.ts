@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import mysqlPool from '../config/db-mysql';
 import { MemberProfile, TelemetryLog } from '../models';
 
@@ -108,11 +109,19 @@ export const loginMember = async (req: Request, res: Response): Promise<void> =>
             device_info: req.headers['user-agent'] || 'Unknown'
         });
 
-        // 5. Respond with user data (excluding password for the frontend)
+        // 5. Generate JWT token for authenticated sessions
+        const token = jwt.sign(
+            { id: member.member_id, role: member.role || 'member' },
+            process.env.JWT_SECRET || 'fallback_secret',
+            { expiresIn: '8h' }
+        );
+
+        // 6. Respond with user data (excluding password for the frontend)
         res.status(200).json({
             status: 'success',
             message: 'Login successful.',
             session_id: sessionId,
+            token,
             user: {
                 id: member.member_id,
                 username: member.username,
