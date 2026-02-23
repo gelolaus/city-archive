@@ -146,7 +146,7 @@ export default function AdminDashboard() {
                 <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ borderRadius: 16, border: "1px solid rgba(255,255,255,0.6)", background: "rgba(255,255,255,0.9)", backdropFilter: "blur(8px)" }}
-                  labelFormatter={(v: string) => new Date(v).toLocaleDateString()}
+                  labelFormatter={(v: any) => new Date(v).toLocaleDateString()}toLocaleDateString()}
                 />
                 <Line type="monotone" dataKey="count" name="Loans" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4, fill: "#3b82f6" }} />
               </LineChart>

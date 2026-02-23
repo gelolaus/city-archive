@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { apiFetch } from "@/api/client";
-import { Search, Plus, Pencil, X, UserPlus } from "lucide-react";
-
+import { Search, Pencil, X, UserPlus } from "lucide-react";
 interface Member {
   member_id: number;
   first_name: string;
