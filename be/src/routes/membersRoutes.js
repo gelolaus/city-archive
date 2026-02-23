@@ -22,8 +22,9 @@ router.get('/', async (req, res, next) => {
     }
     query += ` GROUP BY m.member_id ORDER BY m.last_name, m.first_name`;
     const [rows] = await mysqlPool.query(query, params);
-    // Strip passwords from response
-    const safe = rows.map(({ password, ...rest }) => rest);
+    
+    // Updated to strip 'password_hash' to match your DB schema
+    const safe = rows.map(({ password_hash, ...rest }) => rest);
     res.json(safe);
   } catch (err) {
     next(err);
@@ -37,26 +38,25 @@ router.get('/:id', async (req, res, next) => {
     if (rows.length === 0) {
       return res.status(404).json({ status: 'error', message: 'Member not found.' });
     }
-    const { password, ...safe } = rows[0];
+    const { password_hash, ...safe } = rows[0];
     res.json(safe);
   } catch (err) {
     next(err);
   }
 });
 
-// PUT /api/members/:id - Update member info
+// PUT /api/members/:id - Update member info (Removed address)
 router.put('/:id', async (req, res, next) => {
   try {
-    const { first_name, last_name, email, phone, address } = req.body || {};
+    const { first_name, last_name, email, phone } = req.body || {};
     const [result] = await mysqlPool.query(
       `UPDATE members SET
         first_name = COALESCE(?, first_name),
         last_name = COALESCE(?, last_name),
         email = COALESCE(?, email),
-        phone = COALESCE(?, phone),
-        address = COALESCE(?, address)
+        phone = COALESCE(?, phone)
        WHERE member_id = ?`,
-      [first_name || null, last_name || null, email || null, phone || null, address || null, req.params.id]
+      [first_name || null, last_name || null, email || null, phone || null, req.params.id]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ status: 'error', message: 'Member not found.' });
@@ -80,6 +80,7 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
+// POST /api/members/register - Register member (Removed address)
 router.post('/register', async (req, res, next) => {
   try {
     const body = req.body || {};
@@ -88,8 +89,7 @@ router.post('/register', async (req, res, next) => {
       last_name,
       email,
       password,
-      phone,
-      address,
+      phone
     } = body;
     if (!first_name || !last_name || !email || !password) {
       return res.status(400).json({
@@ -97,13 +97,13 @@ router.post('/register', async (req, res, next) => {
         message: 'first_name, last_name, email, and password are required.',
       });
     }
-    await mysqlPool.query('CALL add_member(?, ?, ?, ?, ?, ?)', [
+    // Updated call to procedure - ensure your stored procedure matches these 5 arguments
+    await mysqlPool.query('CALL add_member(?, ?, ?, ?, ?)', [
       first_name,
       last_name,
       email,
       password,
-      phone ?? null,
-      address ?? null,
+      phone ?? null
     ]);
     res.status(201).json({ status: 'ok', message: 'Member registered.' });
   } catch (err) {
