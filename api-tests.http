@@ -1,23 +1,97 @@
-### Test 1: Successful Registration
-POST http://127.0.0.1:5000/api/members/register
+@baseUrl = http://127.0.0.1:5000/api
+@sessionId = session_gelo_001
+
+### ==========================================
+### 1. IDENTITY & ACCESS MANAGEMENT
+### ==========================================
+
+### Test 1: Successful Member Registration
+# Note: Ensure email is unique every time you run this test.
+POST {{baseUrl}}/members/register
 Content-Type: application/json
+x-session-id: {{sessionId}}
 
 {
-    "firstName": "Angelo",
+    "firstName": "Angelo John Benedict",
     "lastName": "Laus",
-    "email": "angelo.laus@jhundb.com",
+    "email": "ajb.laus@jhundb.com",
     "phone": "09170001234",
     "password": "StrongPassword@2026"
 }
 
-### Test 2: Intentional Constraint Failure (Weak Password)
-POST http://127.0.0.1:5000/api/members/register
+### Test 2: Registration Failure (Weak Password)
+# Expected: 400 Bad Request (MySQL Regex Constraint Violation)
+POST {{baseUrl}}/members/register
 Content-Type: application/json
 
 {
-    "firstName": "Angelo",
-    "lastName": "Laus",
-    "email": "angelo.fail@jhundb.com",
-    "phone": "09170005678",
-    "password": "weakpassword"
+    "firstName": "Failure",
+    "lastName": "Test",
+    "email": "fail@test.com",
+    "phone": "09170001234",
+    "password": "weak"
+}
+
+### Test 3: Successful Login
+POST {{baseUrl}}/members/login
+Content-Type: application/json
+x-session-id: {{sessionId}}
+
+{
+    "identifier": "ajblaus", 
+    "password": "StrongPassword@2026"
+}
+
+
+### ==========================================
+### 2. CORE LIBRARY TRANSACTIONS (Hybrid-Polyglot)
+### ==========================================
+
+### Test 4: Search Books (Logs query to MongoDB Telemetry)
+# Usage: Change keyword to 'Rizal' or 'Rowling'
+GET {{baseUrl}}/books/search?keyword=Rizal
+x-session-id: {{sessionId}}
+
+
+### Test 5: View Book Details (Increments MongoDB Analytics View Count)
+# Usage: Ensure ID 1 exists in your MySQL 'books' table
+POST {{baseUrl}}/books/view/1
+Content-Type: application/json
+x-session-id: {{sessionId}}
+
+
+### Test 6: Borrow Book (MySQL Transaction + Mongo Analytics Borrow Count)
+# Rationale: This triggers the 'Hoarder Blocker' and conversion rate calculation.
+POST {{baseUrl}}/books/borrow
+Content-Type: application/json
+
+{
+    "memberId": 1,
+    "bookId": 1,
+    "librarianId": 1
+}
+
+
+### ==========================================
+### 3. SYSTEM HEALTH
+### ==========================================
+
+### Test 7: API Health Check
+GET {{baseUrl}}/health
+
+### Test 0.1: Add an Author (MySQL)
+# Do this directly in MySQL Workbench first, or we can make a controller later.
+# For now, let's assume Author ID 1 and Category ID 1 exist from our earlier SQL seeding.
+
+### Test 8: Add a New Book (Librarian Operation)
+POST {{baseUrl}}/librarian/add-book
+Content-Type: application/json
+
+{
+    "authorId": 1,
+    "categoryId": 1,
+    "title": "Noli Me Tangere",
+    "isbn": "978-1234567890",
+    "synopsis": "A masterpiece of Philippine literature.",
+    "totalCopies": 5
 }

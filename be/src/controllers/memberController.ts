@@ -66,3 +66,63 @@ export const registerMember = async (req: Request, res: Response): Promise<void>
     }
 };
 
+export const loginMember = async (req: Request, res: Response): Promise<void> => {
+    const { identifier, password } = req.body; // identifier can be username or email
+    const sessionId = (req.headers['x-session-id'] as string) || `sess_${Date.now()}`;
+
+    try {
+        // 1. Call MySQL Stored Procedure to fetch auth data safely
+        const [rows]: any = await mysqlPool.execute('CALL get_member_auth(?)', [identifier]);
+
+        // MySQL Stored Procedures return an array of arrays. The actual data is in rows[0][0]
+        const member = rows[0][0];
+
+        // 2. Security Check: Does user exist and is the password correct?
+        if (!member || member.password !== password) {
+            // Log failed attempt in MongoDB for security auditing
+            await TelemetryLog.create({
+                session_id: sessionId,
+                event_type: 'UI_CLICK',
+                search_query: `FAILED_LOGIN_ATTEMPT: ${identifier}`,
+                ip_address: req.ip || 'Unknown',
+                device_info: req.headers['user-agent'] || 'Unknown'
+            });
+
+            res.status(401).json({ status: 'error', message: 'Invalid credentials.' });
+            return;
+        }
+
+        // 3. Status Check: Is the account suspended?
+        if (!member.is_active) {
+            res.status(403).json({ status: 'error', message: 'Account suspended. Contact librarian.' });
+            return;
+        }
+
+        // 4. Success: Log the successful login session in MongoDB Telemetry
+        await TelemetryLog.create({
+            session_id: sessionId,
+            member_mongo_id: member.mongo_id,
+            event_type: 'UI_CLICK',
+            search_query: 'User Login Successful',
+            ip_address: req.ip || 'Unknown',
+            device_info: req.headers['user-agent'] || 'Unknown'
+        });
+
+        // 5. Respond with user data (excluding password for the frontend)
+        res.status(200).json({
+            status: 'success',
+            message: 'Login successful.',
+            session_id: sessionId,
+            user: {
+                id: member.member_id,
+                username: member.username,
+                email: member.email,
+                mongo_id: member.mongo_id
+            }
+        });
+    } catch (error: any) {
+        console.error('Login Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Internal server error during login.' });
+    }
+};
+
