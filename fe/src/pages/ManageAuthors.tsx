@@ -313,6 +313,38 @@ export default function ManageAuthors() {
         </section>
         
       </div>
+
+      {editingAuthor && (
+        <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
+          <div style={{ backgroundColor: "white", padding: "30px", borderRadius: "12px", width: "400px", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }}>
+            <h3 style={{ marginTop: 0 }}>Edit Author Information</h3>
+            <form onSubmit={handleUpdate} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: "bold" }}>First Name</label>
+                <input 
+                  type="text" 
+                  value={editForm.first_name} 
+                  onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })} 
+                  style={{ width: "100%", padding: "8px", marginTop: "4px", border: "1px solid #cbd5e1", borderRadius: "4px" }} 
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "14px", fontWeight: "bold" }}>Last Name</label>
+                <input 
+                  type="text" 
+                  value={editForm.last_name} 
+                  onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })} 
+                  style={{ width: "100%", padding: "8px", marginTop: "4px", border: "1px solid #cbd5e1", borderRadius: "4px" }} 
+                />
+              </div>
+              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                <button type="submit" style={{ flex: 1, padding: "10px", backgroundColor: "#0f172a", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}>Save Changes</button>
+                <button type="button" onClick={() => setEditingAuthor(null)} style={{ flex: 1, padding: "10px", backgroundColor: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "4px", cursor: "pointer" }}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
