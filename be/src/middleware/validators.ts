@@ -18,7 +18,20 @@ export const registerSchema = z.object({
     })
 });
 
-// 2. The Express Middleware that intercepts the request
+// 2. Create Book Schema
+export const createBookSchema = z.object({
+    body: z.object({
+        title: z.string().min(2, 'Title must be at least 2 characters'),
+        isbn: z.string().min(10, 'ISBN must be valid'),
+        authorId: z.number().int().positive('Please select a valid author'),
+        categoryId: z.number().int().positive('Please select a valid category'),
+        synopsis: z.string().optional(),
+        coverImage: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+        totalCopies: z.number().int().min(1, 'Must have at least 1 copy')
+    })
+});
+
+// 3. The Express Middleware that intercepts the request
 export const validateData = (schema: z.ZodSchema) => {
     return (req: Request, res: Response, next: NextFunction): void => {
         try {
