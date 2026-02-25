@@ -1,34 +1,30 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import mysqlPool from '../config/db-mysql';
-import { BookContent, TelemetryLog, BookAnalytics } from '../models';
+import { BookContent, TelemetryLog, BookAnalytics, TransactionLedger, MemberProfile } from '../models';
 
 export const searchBooks = async (req: Request, res: Response): Promise<void> => {
     const keyword = (req.query.keyword as string) || '';
     const type = (req.query.type as string) || 'all';
-    const status = (req.query.status as string) || 'all'; // The status the frontend actually wants
+    const status = (req.query.status as string) || 'all';
     const sessionId = (req.headers['x-session-id'] as string) || 'anon';
 
     try {
+        // FIX #3: Log ONLY the pure, clean keyword so the Dashboard groups it perfectly
         await TelemetryLog.create({
             session_id: sessionId,
             event_type: 'SEARCH_EXECUTED',
-            search_query: `keyword:${keyword}|type:${type}|status:${status}`,
+            search_query: keyword.trim() === '' ? 'Empty Search' : keyword.trim(),
             ip_address: req.ip || 'unknown'
         });
 
-        // FIX #1: Tell MySQL to return 'all' statuses so it doesn't prematurely hide books from us
         const [rows]: any = await mysqlPool.execute('CALL search_books(?, ?, ?)', [keyword, type, 'all']);
-        const booksFromDb = rows[0];
-
-        // FIX #2: Enrich with MongoDB (The Absolute Source of Truth)
+        
         const enrichedBooks = await Promise.all(
-            booksFromDb.map(async (book: any) => {
+            rows[0].map(async (book: any) => {
                 const mongoData = await BookContent.findOne({ mysql_book_id: book.book_id });
-                
                 return {
                     ...book,
-                    // If Mongo says copies > 0, it's available. Period.
                     available: mongoData ? mongoData.inventory.available_copies > 0 : book.available,
                     synopsis: mongoData?.synopsis || 'No synopsis available.',
                     cover_image: mongoData?.cover_image_url || 'https://via.placeholder.com/300x450?text=No+Cover'
@@ -36,11 +32,10 @@ export const searchBooks = async (req: Request, res: Response): Promise<void> =>
             })
         );
 
-        // FIX #3: Apply the frontend's status filter AFTER we know the true MongoDB availability
         const finalFilteredBooks = enrichedBooks.filter((book) => {
             if (status === 'available') return book.available === true;
             if (status === 'borrowed') return book.available === false;
-            return true; // If status is 'all'
+            return true; 
         });
 
         res.status(200).json({ status: 'success', data: finalFilteredBooks });
@@ -136,22 +131,35 @@ export const borrowBook = async (req: Request, res: Response): Promise<void> => 
     const { memberId, bookId, librarianId } = req.body;
 
     try {
-        // 1. Verify MongoDB Inventory First
         const mongoBook = await BookContent.findOne({ mysql_book_id: Number(bookId) });
         if (!mongoBook || mongoBook.inventory.available_copies <= 0) {
             res.status(400).json({ status: 'error', message: 'No copies available for checkout.' }); return;
         }
 
-        // 2. Execute MySQL Transaction
         await mysqlPool.execute('CALL process_borrow(?, ?, ?)', [memberId, bookId, librarianId]);
 
-        // 3. FIX: Deduct Copy in MongoDB (-1)
         await BookContent.findOneAndUpdate(
             { mysql_book_id: Number(bookId) },
-            { 
-                $inc: { 'inventory.available_copies': -1, total_borrows: 1 } 
-            }
+            { $inc: { 'inventory.available_copies': -1 } }
         );
+
+        await BookAnalytics.findOneAndUpdate(
+            { book_mongo_id: mongoBook._id },
+            { $inc: { total_borrows: 1 } },
+            { upsert: true }
+        );
+
+        // FIX #4: Ensure MemberProfile exists, then insert into the Transaction Ledger!
+        let memberProfile = await MemberProfile.findOne({ mysql_member_id: Number(memberId) });
+        if (!memberProfile) {
+            memberProfile = await MemberProfile.create({ mysql_member_id: Number(memberId) });
+        }
+
+        await TransactionLedger.create({
+            action: 'BORROW_INITIATED',
+            member_mongo_id: memberProfile._id,
+            book_mongo_id: mongoBook._id
+        });
 
         res.status(201).json({ status: 'success', message: 'Book borrowed successfully.' });
     } catch (error: any) {
@@ -166,23 +174,44 @@ export const returnBook = async (req: Request, res: Response): Promise<void> => 
         await mysqlPool.execute('CALL process_return(?)', [loanId]);
 
         const [rows]: any = await mysqlPool.execute(
-            'SELECT book_id, DATEDIFF(return_date, checkout_date) as days_kept FROM loans WHERE loan_id = ?',
+            'SELECT book_id, member_id, DATEDIFF(return_date, checkout_date) as days_kept FROM loans WHERE loan_id = ?',
             [loanId]
         );
         const loanData = rows[0];
 
-        // Ensure MongoDB is updated appropriately
         const mongoBook = await BookContent.findOne({ mysql_book_id: loanData.book_id });
         if (mongoBook) {
-            await BookAnalytics.findOneAndUpdate(
-                { book_mongo_id: mongoBook._id },
-                { $push: { return_durations: loanData.days_kept }, $inc: { total_returns: 1 } }
-            );
-            
-            // Increment the available copies back up!
             await BookContent.findOneAndUpdate(
                 { mysql_book_id: loanData.book_id },
                 { $inc: { 'inventory.available_copies': 1 } }
+            );
+
+            let memberProfile = await MemberProfile.findOne({ mysql_member_id: loanData.member_id });
+            if (!memberProfile) {
+                memberProfile = await MemberProfile.create({ mysql_member_id: loanData.member_id });
+            }
+
+            // FIX #4: Write to Transaction Ledger
+            await TransactionLedger.create({
+                mysql_loan_id: Number(loanId),
+                action: 'BOOK_RETURNED',
+                member_mongo_id: memberProfile._id,
+                book_mongo_id: mongoBook._id,
+                duration_days: loanData.days_kept
+            });
+
+            // FIX #4: Dynamically calculate the True Average Return Time using the Ledger
+            const allReturns = await TransactionLedger.find({ 
+                book_mongo_id: mongoBook._id, 
+                action: 'BOOK_RETURNED' 
+            });
+            
+            const totalDays = allReturns.reduce((sum, t) => sum + (t.duration_days || 0), 0);
+            const avgTime = allReturns.length > 0 ? parseFloat((totalDays / allReturns.length).toFixed(2)) : 0;
+
+            await BookAnalytics.findOneAndUpdate(
+                { book_mongo_id: mongoBook._id },
+                { avg_return_time_days: avgTime }
             );
         }
 

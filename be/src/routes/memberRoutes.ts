@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { registerMember, loginMember, loginLibrarian, searchMembers, getDashboardData } from '../controllers/memberController';
+import { registerMember, loginMember, loginLibrarian, searchMembers, getDashboardData, getAdminStats } from '../controllers/memberController';
 import { validateData, registerSchema } from '../middleware/validators';
 
 const router = Router();
@@ -20,6 +20,9 @@ router.get('/dashboard', getDashboardData);
 
 // POST /api/members/auth/login/librarian
 router.post('/login/librarian', loginLibrarian);
+
+// GET /api/members/admin/stats
+router.get('/admin/stats', getAdminStats);
 
 // GET /api/members/search
 router.get('/search', searchMembers);

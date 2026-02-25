@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import mysqlPool from '../config/db-mysql';
 import { MemberProfile, TelemetryLog } from '../models';
+import { BookContent, BookAnalytics } from '../models';
 
 export const registerMember = async (req: Request, res: Response): Promise<void> => {
     const { firstName, lastName, email, phone, password } = req.body;
@@ -223,5 +224,99 @@ export const getDashboardData = async (req: Request, res: Response): Promise<voi
         });
     } catch (error: any) {
         res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+export const getAdminStats = async (req: Request, res: Response): Promise<void> => {
+    try {
+        // 1. Fire MySQL Queries
+        const [loansResult]: any = await mysqlPool.execute('SELECT COUNT(*) AS count FROM loans WHERE return_date IS NULL');
+        const [finesResult]: any = await mysqlPool.execute('SELECT COALESCE(SUM(amount), 0) AS total FROM fines WHERE is_paid = FALSE');
+
+        // 2. Fire MongoDB Queries (Inventory & Analytics)
+        const inventoryResult = await BookContent.aggregate([{ $group: { _id: null, totalCopies: { $sum: "$inventory.total_copies" } } }]);
+        const analyticsResult = await BookAnalytics.aggregate([{ $group: { _id: null, totalViews: { $sum: "$total_views" } } }]);
+
+        // 3. ADVANCED MONGODB ANALYTICS
+        const topSearches = await TelemetryLog.aggregate([
+            { $match: { event_type: 'SEARCH_EXECUTED', search_query: { $ne: null } } },
+            { $group: { _id: "$search_query", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 5 }
+        ]);
+
+        // FIX: The Dynamic Conversion Rate Calculation Pipeline
+        const fetchBookRankings = async (sortObj: any, matchObj: any = {}) => {
+            return await BookAnalytics.aggregate([
+                {
+                    // Calculate conversion rate dynamically on-the-fly!
+                    $addFields: {
+                        true_conversion: {
+                            $cond: [
+                                { $gt: ["$total_views", 0] },
+                                { $divide: ["$total_borrows", "$total_views"] },
+                                0
+                            ]
+                        }
+                    }
+                },
+                { $match: matchObj }, // Now filter using the true math
+                { $sort: sortObj },
+                { $limit: 5 },
+                { $lookup: { from: 'bookcontents', localField: 'book_mongo_id', foreignField: '_id', as: 'content' } },
+                { $unwind: '$content' },
+                { $project: {
+                    mysql_book_id: '$content.mysql_book_id',
+                    total_views: 1,
+                    total_borrows: 1,
+                    conversion_rate: '$true_conversion', // Replace the stuck 0.0 with the real math!
+                    avg_return_time_days: 1
+                } }
+            ]);
+        };
+
+        // B. Top Viewed, Top Borrowed, and High-View/Low-Borrow
+        const topViewedMongo = await fetchBookRankings({ total_views: -1 });
+        const topBorrowedMongo = await fetchBookRankings({ total_borrows: -1 });
+
+        // Apply the strict 25% threshold against the dynamic 'true_conversion' field
+        const lowConversionMongo = await fetchBookRankings(
+            { true_conversion: 1, total_views: -1 },
+            {
+                total_views: { $gte: 1 },
+                true_conversion: { $lt: 0.25 }
+            }
+        );
+
+        // 4. CROSS-REFERENCE MYSQL FOR TITLES
+        const extractIds = (arr: any[]) => arr.map(item => item.mysql_book_id);
+        const allNeededIds = [...new Set([ ...extractIds(topViewedMongo), ...extractIds(topBorrowedMongo), ...extractIds(lowConversionMongo) ])];
+
+        let titleMap: Record<number, string> = {};
+        if (allNeededIds.length > 0) {
+            const placeholders = allNeededIds.map(() => '?').join(',');
+            const [bookTitles]: any = await mysqlPool.execute(`SELECT book_id, title FROM books WHERE book_id IN (${placeholders})`, allNeededIds);
+            bookTitles.forEach((b: any) => { titleMap[b.book_id] = b.title; });
+        }
+
+        const mapTitles = (arr: any[]) => arr.map(item => ({ ...item, title: titleMap[item.mysql_book_id] || 'Unknown Book' }));
+
+        // 5. Package and send
+        res.status(200).json({
+            status: 'success',
+            data: {
+                activeLoans: loansResult[0].count,
+                unpaidFines: parseFloat(finesResult[0].total),
+                totalBooks: inventoryResult.length > 0 ? inventoryResult[0].totalCopies : 0,
+                systemViews: analyticsResult.length > 0 ? analyticsResult[0].totalViews : 0,
+                topSearches: topSearches.map(s => ({ query: s._id, count: s.count })),
+                topViewed: mapTitles(topViewedMongo),
+                topBorrowed: mapTitles(topBorrowedMongo),
+                lowConversion: mapTitles(lowConversionMongo)
+            }
+        });
+    } catch (error: any) {
+        console.error('Admin Stats Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch dashboard statistics.' });
     }
 };
