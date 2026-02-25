@@ -191,3 +191,19 @@ export const returnBook = async (req: Request, res: Response): Promise<void> => 
         res.status(400).json({ status: 'error', database_error: error.message });
     }
 };
+
+export const getActiveLoansByMember = async (req: Request, res: Response): Promise<void> => {
+    const memberId = Number(req.params.memberId);
+    try {
+        // Call the MySQL procedure to get active loans
+        const [rows]: any = await mysqlPool.execute('CALL get_member_current_loans(?)', [memberId]);
+        
+        res.status(200).json({ 
+            status: 'success', 
+            data: rows[0] 
+        });
+    } catch (error: any) {
+        console.error('Fetch Loans Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch active loans.' });
+    }
+};

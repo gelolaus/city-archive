@@ -9,6 +9,7 @@ import LibrarianLogin from './pages/LibrarianLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import BorrowBook from './pages/BorrowBook';
+import ReturnBook from './pages/ReturnBook';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/borrow" element={<BorrowBook />} />
           <Route path="/add-book" element={<AddBook />} />
+          <Route path="/admin/return" element={<ReturnBook />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />
