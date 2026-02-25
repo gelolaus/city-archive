@@ -469,3 +469,73 @@ export const restoreBookFromVault = async (req: Request, res: Response): Promise
         res.status(500).json({ status: 'error', message: 'Failed to restore book.' });
     }
 };
+
+// Fetch all authors for the management list
+export const getAllAuthors = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const [rows]: any = await mysqlPool.execute(
+            'SELECT author_id, first_name, last_name, created_at FROM authors ORDER BY last_name ASC'
+        );
+        res.status(200).json({ status: 'success', data: rows });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: 'Failed to fetch authors.' });
+    }
+};
+
+// Update an author's name
+export const updateAuthorRecord = async (req: Request, res: Response): Promise<void> => {
+    const { authorId } = req.params;
+    const { first_name, last_name } = req.body;
+    try {
+        await mysqlPool.execute('CALL update_author(?, ?, ?)', [authorId, first_name, last_name]);
+        res.status(200).json({ status: 'success', message: 'Author updated successfully.' });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+export const deleteAuthorRecord = async (req: Request, res: Response): Promise<void> => {
+    const { authorId } = req.params;
+    try {
+        // This will trigger trg_arc_authors in MySQL
+        await mysqlPool.execute('DELETE FROM authors WHERE author_id = ?', [authorId]);
+        res.status(200).json({ status: 'success', message: 'Author moved to 30-day archive.' });
+    } catch (error: any) {
+        if (error.message.includes('foreign key constraint')) {
+            res.status(400).json({ 
+                status: 'error', 
+                message: 'Cannot archive: This author still has books in the catalog. Reassign or delete the books first.' 
+            });
+        } else {
+            res.status(500).json({ status: 'error', message: 'Failed to archive author.' });
+        }
+    }
+};
+
+export const getArchivedAuthors = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const [rows]: any = await mysqlPool.execute(
+            `SELECT archive_id, original_id, record_payload, 
+                    DATE_FORMAT(archived_at, '%Y-%m-%d %H:%i') as archived_date,
+                    DATE_FORMAT(DATE_ADD(archived_at, INTERVAL 30 DAY), '%Y-%m-%d') as deletion_date
+             FROM authors_archive 
+             ORDER BY archived_at DESC`
+        );
+        
+        res.status(200).json({ status: 'success', data: rows });
+    } catch (error: any) {
+        console.error('Fetch Author Archive Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to access the Author Vault.' });
+    }
+};
+
+export const restoreAuthor = async (req: Request, res: Response): Promise<void> => {
+    const archiveId = Number(req.params.archiveId);
+    try {
+        await mysqlPool.execute('CALL restore_author(?)', [archiveId]);
+        res.status(200).json({ status: 'success', message: 'Author successfully restored.' });
+    } catch (error: any) {
+        console.error('Author Restore Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to restore author.' });
+    }
+};

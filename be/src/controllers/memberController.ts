@@ -320,3 +320,59 @@ export const getAdminStats = async (req: Request, res: Response): Promise<void> 
         res.status(500).json({ status: 'error', message: 'Failed to fetch dashboard statistics.' });
     }
 };
+
+// Fetch all members for the admin list
+export const getAllMembers = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const [rows]: any = await mysqlPool.execute(
+            'SELECT member_id, username, first_name, last_name, email, phone_number, is_active, created_at FROM members ORDER BY created_at DESC'
+        );
+        res.status(200).json({ status: 'success', data: rows });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: 'Failed to fetch member directory.' });
+    }
+};
+
+// Add this to memberController.ts
+// Updated memberController.ts (No Hashing)
+export const updateMemberDetails = async (req: Request, res: Response): Promise<void> => {
+    const { memberId } = req.params;
+    const { first_name, last_name, email, phone_number, password } = req.body;
+
+    try {
+        // We pass the raw password string. 
+        // If it's an empty string or null, MySQL's COALESCE will keep the old one.
+        const rawPw = (password && password.trim() !== "") ? password : null;
+
+        await mysqlPool.execute('CALL update_member(?, ?, ?, ?, ?, ?)', 
+            [memberId, first_name, last_name, email, phone_number, rawPw]
+        );
+        
+        res.status(200).json({ status: 'success', message: 'Member profile updated (Plain Text).' });
+    } catch (error: any) {
+        if (error.message.includes('Duplicate entry')) {
+            res.status(400).json({ status: 'error', message: 'Email address already in use.' });
+        } else {
+            res.status(500).json({ status: 'error', message: 'Failed to update member.' });
+        }
+    }
+};
+
+export const toggleMemberStatus = async (req: Request, res: Response): Promise<void> => {
+    const { memberId } = req.params;
+    const { status } = req.body; // Expecting a boolean
+
+    try {
+        // Instead of DELETE, we perform an UPDATE on the is_active flag
+        await mysqlPool.execute(
+            'UPDATE members SET is_active = ? WHERE member_id = ?',
+            [status ? 1 : 0, memberId]
+        );
+
+        const message = status ? 'Member account reactivated.' : 'Member account suspended.';
+        res.status(200).json({ status: 'success', message });
+    } catch (error: any) {
+        console.error('Status Toggle Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to update member status.' });
+    }
+};

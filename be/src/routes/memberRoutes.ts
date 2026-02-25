@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { registerMember, loginMember, loginLibrarian, searchMembers, getDashboardData, getAdminStats } from '../controllers/memberController';
+import { registerMember, loginMember, loginLibrarian, searchMembers, getDashboardData, getAdminStats, getAllMembers, updateMemberDetails, toggleMemberStatus } from '../controllers/memberController';
 import { validateData, registerSchema } from '../middleware/validators';
+import { verifyToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -26,5 +27,10 @@ router.get('/admin/stats', getAdminStats);
 
 // GET /api/members/search
 router.get('/search', searchMembers);
+
+router.get('/admin/list', verifyToken, getAllMembers);
+router.put('/admin/update/:memberId', verifyToken, updateMemberDetails);
+router.patch('/admin/toggle-status/:memberId', verifyToken, toggleMemberStatus);
+router.put('/admin/update/:memberId', verifyToken, updateMemberDetails);
 
 export default router;
