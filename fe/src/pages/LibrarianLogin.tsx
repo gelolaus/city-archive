@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 
-export default function Login() {
+export default function LibrarianLogin() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,40 +15,37 @@ export default function Login() {
     setLoading(true);
     
     try {
-      // 1. Send the payload to our Node.js backend
-      const response = await api.post("/members/login", { 
+      // Path must match the router prefix (e.g., /api/members/login/librarian)
+      const response = await api.post("/members/login/librarian", { 
           identifier: identifier, 
           password: password 
       });
 
-      // 2. Save the VIP passes
-      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('adminToken', response.data.token);
+      localStorage.setItem('role', 'librarian');
       localStorage.setItem('session_id', response.data.session_id);
 
-      // 3. Go to the dashboard
-      navigate("/dashboard");
-
+      navigate("/admin/dashboard");
     } catch (err: any) {
-      const msg = err.response?.data?.message || "Invalid credentials. Check your backend server.";
-      setError(msg);
+      setError(err.response?.data?.message || "Invalid credentials. Check staff status.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: '50px', maxWidth: '300px', margin: '50px auto', fontFamily: 'sans-serif', border: '1px solid #ccc', borderRadius: '8px' }}>
-      <h2>Member Login</h2>
+    <div style={{ padding: '50px', maxWidth: '300px', margin: '50px auto', fontFamily: 'sans-serif', border: '2px solid #0f172a', borderRadius: '8px' }}>
+      <h2 style={{ textAlign: 'center' }}>Librarian Login</h2>
       
       {error && (
-        <div style={{ color: 'red', marginBottom: '15px', padding: '10px', backgroundColor: '#ffe6e6', border: '1px solid red' }}>
+        <div style={{ color: 'red', marginBottom: '15px', padding: '10px', backgroundColor: '#ffe6e6', border: '1px solid red', fontSize: '13px' }}>
           {error}
         </div>
       )}
 
       <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <div>
-          <label style={{ fontWeight: 'bold' }}>Username / Email:</label>
+          <label style={{ fontWeight: 'bold' }}>Staff Username / Email:</label>
           <input
             type="text"
             value={identifier}
@@ -79,13 +76,8 @@ export default function Login() {
       </form>
 
       <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px' }}>
-        New here? <Link to="/register" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 'bold' }}>Register an account</Link>
+        <Link to="/login" style={{ color: '#64748b', textDecoration: 'none' }}>← Back to Member Login</Link>
       </div>
-
-      <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px' }}>
-        Are you a Librarian? <Link to="/librarian-login" style={{ color: '#64748b', fontWeight: 'bold' }}>Librarian Login</Link>
-      </div>
-      
     </div>
   );
 }
