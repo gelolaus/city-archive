@@ -14,7 +14,7 @@ import ManageAuthors from './pages/ManageAuthors';
 import ManageMembers from './pages/ManageMembers';
 import LoansDashboard from './pages/LoansDashboard';
 import AdminLayout from './components/AdminLayout';
-import AuditTrails from './pages/AuditTrails'; // Make sure this is imported!
+import AuditTrails from './pages/AuditTrails';
 
 function App() {
   return (
