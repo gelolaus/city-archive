@@ -1,61 +1,4 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import type { CSSProperties } from "react";
-
-const sidebarStyle: CSSProperties = {
-  width: "260px",
-  backgroundColor: "#0f172a",
-  color: "white",
-  padding: "24px 20px",
-  display: "flex",
-  flexDirection: "column",
-  gap: "24px",
-  boxSizing: "border-box",
-};
-
-const sectionTitleStyle: CSSProperties = {
-  fontSize: "12px",
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  color: "#9ca3af",
-  marginBottom: "8px",
-};
-
-const navSectionStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "6px",
-};
-
-const linkBaseStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  padding: "8px 10px",
-  borderRadius: "6px",
-  fontSize: "14px",
-  textDecoration: "none",
-  color: "white",
-  cursor: "pointer",
-};
-
-const logoutButtonStyle: CSSProperties = {
-  marginTop: "auto",
-  padding: "10px 12px",
-  borderRadius: "6px",
-  border: "none",
-  backgroundColor: "#ef4444",
-  color: "white",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-function navLinkStyle({ isActive }: { isActive: boolean }): CSSProperties {
-  return {
-    ...linkBaseStyle,
-    backgroundColor: isActive ? "#020617" : "transparent",
-    color: isActive ? "#38bdf8" : "white",
-  };
-}
 
 export default function AdminSidebar() {
   const navigate = useNavigate();
@@ -67,73 +10,167 @@ export default function AdminSidebar() {
   };
 
   return (
-    <aside style={sidebarStyle}>
+    <aside className="relative z-20 flex w-64 flex-col gap-6 border-r border-white/60 bg-white/80 px-4 py-5 text-slate-900 shadow-2xl shadow-orange-200/60 backdrop-blur-2xl lg:w-72 lg:px-6">
       <div>
-        <h2 style={{ fontSize: "18px", margin: 0 }}>Staff Panel</h2>
-        <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#9ca3af" }}>
-          Library Operations Console
+        <h2 className="text-base font-semibold tracking-tight text-slate-900 lg:text-lg">
+          Staff Panel
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Library operations & governance
         </p>
       </div>
 
-      <nav style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+      <nav className="flex flex-1 flex-col gap-5 text-sm">
         <div>
-          <p style={sectionTitleStyle}>Overview</p>
-          <div style={navSectionStyle}>
-            <NavLink to="/admin/dashboard" style={navLinkStyle}>
-              <span>📊</span>
-              <span>Stats Overview</span>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Overview
+          </p>
+          <div className="space-y-1">
+            <NavLink
+              to="/admin/dashboard"
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-2 rounded-2xl px-2.5 py-2 text-xs font-medium transition",
+                  isActive
+                    ? "bg-slate-900 text-amber-50 shadow-md"
+                    : "text-slate-700 hover:bg-slate-900/5 hover:text-slate-900",
+                ].join(" ")
+              }
+            >
+              <span className="text-base">📊</span>
+              <span>Stats overview</span>
             </NavLink>
           </div>
         </div>
 
         <div>
-          <p style={sectionTitleStyle}>Circulation</p>
-          <div style={navSectionStyle}>
-            <NavLink to="/admin/loans" style={navLinkStyle}>
-              <span>🤝</span>
-              <span>Loans Dashboard</span>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Circulation
+          </p>
+          <div className="space-y-1">
+            <NavLink
+              to="/admin/loans"
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-2 rounded-2xl px-2.5 py-2 text-xs font-medium transition",
+                  isActive
+                    ? "bg-slate-900 text-amber-50 shadow-md"
+                    : "text-slate-700 hover:bg-slate-900/5 hover:text-slate-900",
+                ].join(" ")
+              }
+            >
+              <span className="text-base">🤝</span>
+              <span>Loans dashboard</span>
             </NavLink>
-            <NavLink to="/admin/fines" style={navLinkStyle}>
-              <span>💳</span>
-              <span>Settle Fines</span>
+            <NavLink
+              to="/admin/fines"
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-2 rounded-2xl px-2.5 py-2 text-xs font-medium transition",
+                  isActive
+                    ? "bg-slate-900 text-amber-50 shadow-md"
+                    : "text-slate-700 hover:bg-slate-900/5 hover:text-slate-900",
+                ].join(" ")
+              }
+            >
+              <span className="text-base">💳</span>
+              <span>Settle fines</span>
             </NavLink>
           </div>
         </div>
 
         <div>
-          <p style={sectionTitleStyle}>Management</p>
-          <div style={navSectionStyle}>
-            <NavLink to="/admin/books" style={navLinkStyle}>
-              <span>📖</span>
-              <span>Manage Books</span>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Management
+          </p>
+          <div className="space-y-1">
+            <NavLink
+              to="/admin/books"
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-2 rounded-2xl px-2.5 py-2 text-xs font-medium transition",
+                  isActive
+                    ? "bg-slate-900 text-amber-50 shadow-md"
+                    : "text-slate-700 hover:bg-slate-900/5 hover:text-slate-900",
+                ].join(" ")
+              }
+            >
+              <span className="text-base">📖</span>
+              <span>Manage books</span>
             </NavLink>
-            <NavLink to="/admin/authors" style={navLinkStyle}>
-              <span>✍️</span>
-              <span>Manage Authors</span>
+            <NavLink
+              to="/admin/authors"
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-2 rounded-2xl px-2.5 py-2 text-xs font-medium transition",
+                  isActive
+                    ? "bg-slate-900 text-amber-50 shadow-md"
+                    : "text-slate-700 hover:bg-slate-900/5 hover:text-slate-900",
+                ].join(" ")
+              }
+            >
+              <span className="text-base">✍️</span>
+              <span>Manage authors</span>
             </NavLink>
-            <NavLink to="/admin/members" style={navLinkStyle}>
-              <span>👤</span>
-              <span>Manage Members</span>
+            <NavLink
+              to="/admin/members"
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-2 rounded-2xl px-2.5 py-2 text-xs font-medium transition",
+                  isActive
+                    ? "bg-slate-900 text-amber-50 shadow-md"
+                    : "text-slate-700 hover:bg-slate-900/5 hover:text-slate-900",
+                ].join(" ")
+              }
+            >
+              <span className="text-base">👤</span>
+              <span>Manage members</span>
             </NavLink>
           </div>
         </div>
 
         <div>
-          <p style={sectionTitleStyle}>System</p>
-          <div style={navSectionStyle}>
-            <NavLink to="/admin/audit-logs" style={navLinkStyle}>
-              <span>📋</span>
-              <span>Audit Trails</span>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            System
+          </p>
+          <div className="space-y-1">
+            <NavLink
+              to="/admin/audit-logs"
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-2 rounded-2xl px-2.5 py-2 text-xs font-medium transition",
+                  isActive
+                    ? "bg-slate-900 text-amber-50 shadow-md"
+                    : "text-slate-700 hover:bg-slate-900/5 hover:text-slate-900",
+                ].join(" ")
+              }
+            >
+              <span className="text-base">📋</span>
+              <span>Audit trails</span>
             </NavLink>
-            <NavLink to="/admin/diagnostics" style={navLinkStyle}>
-              <span>🛠️</span>
+            <NavLink
+              to="/admin/diagnostics"
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-2 rounded-2xl px-2.5 py-2 text-xs font-medium transition",
+                  isActive
+                    ? "bg-slate-900 text-amber-50 shadow-md"
+                    : "text-slate-700 hover:bg-slate-900/5 hover:text-slate-900",
+                ].join(" ")
+              }
+            >
+              <span className="text-base">🛠️</span>
               <span>Diagnostics</span>
             </NavLink>
           </div>
         </div>
       </nav>
 
-      <button type="button" onClick={handleLogout} style={logoutButtonStyle}>
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="mt-auto inline-flex items-center justify-center rounded-full bg-rose-500 px-3 py-2 text-xs font-semibold text-rose-50 shadow-md shadow-rose-300/80 transition hover:bg-rose-600"
+      >
         Logout
       </button>
     </aside>

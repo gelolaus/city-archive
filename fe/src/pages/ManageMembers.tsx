@@ -100,10 +100,12 @@ export default function ManageMembers() {
 
   return (
     <div style={{ fontFamily: 'sans-serif' }}>
-      <h2>Member Directory</h2>
-      <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '20px' }}>
-        Monitor account status and manage library access permissions.
-      </p>
+      <div style={{ marginBottom: '20px' }}>
+        <h2 style={{ fontSize: '26px', fontWeight: 600, margin: 0 }}>Member Directory</h2>
+        <p style={{ color: '#64748b', marginTop: '6px', marginBottom: 0, fontSize: '14px' }}>
+          Monitor account status and manage library access permissions.
+        </p>
+      </div>
 
       {/* --- Search Bar --- */}
       <input

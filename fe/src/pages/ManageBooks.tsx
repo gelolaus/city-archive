@@ -154,6 +154,12 @@ export default function ManageBooks() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      <div>
+        <h2 style={{ fontSize: "26px", fontWeight: 600, margin: 0 }}>Catalog Management</h2>
+        <p style={{ color: "#64748b", marginTop: "6px", marginBottom: 0, fontSize: "14px" }}>
+          Add new titles, edit existing records, and manage the archive vault.
+        </p>
+      </div>
       {/* TOP: ADD NEW BOOK */}
       <section style={{ backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", padding: "24px 28px" }}>
         <h2 style={{ marginTop: 0, marginBottom: "4px", fontSize: "20px" }}>Add New Book</h2>

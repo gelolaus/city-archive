@@ -3,9 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 
 export default function BookDetails() {
-  const { id } = useParams(); // Grabs the ID from the URL (/book/1)
+  const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [book, setBook] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,63 +22,111 @@ export default function BookDetails() {
       }
     };
 
-    fetchBook();
+    void fetchBook();
   }, [id]);
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '50px', fontFamily: 'sans-serif' }}>Loading Book Data...</div>;
-  if (error) return <div style={{ textAlign: 'center', padding: '50px', color: 'red', fontFamily: 'sans-serif' }}>{error}</div>;
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-sm text-slate-700 sm:text-base">
+        Loading book data...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-center text-sm text-rose-600 sm:text-base">
+        {error}
+      </div>
+    );
+  }
+
   if (!book) return null;
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '40px auto', fontFamily: 'sans-serif' }}>
-      
-      {/* Back Navigation */}
-      <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '16px', marginBottom: '20px', padding: 0 }}>
-        ← Back to Catalog
+    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 py-4 sm:py-6">
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="inline-flex w-max items-center gap-1 rounded-full border border-white/60 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm shadow-slate-200/80 backdrop-blur-xl transition hover:bg-white hover:text-slate-900 sm:px-4 sm:text-sm"
+      >
+        <span>←</span>
+        <span>Back to catalog</span>
       </button>
 
-      <div style={{ display: 'flex', gap: '40px', backgroundColor: '#fff', padding: '30px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-        
-        {/* Left Column: Cover Image */}
-        <div style={{ flex: '0 0 300px' }}>
-          <img 
-            src={book.cover_image} 
-            alt={book.title} 
-            style={{ width: '100%', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} 
-          />
-          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+      <section className="mt-1 grid gap-6 rounded-3xl border border-white/60 bg-white/80 p-4 shadow-2xl shadow-slate-200/70 backdrop-blur-2xl sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1.5fr)] sm:p-6 lg:gap-8">
+        {/* Cover + availability */}
+        <div className="space-y-4">
+          {book.cover_image && (
+            <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-slate-100/70 shadow-md shadow-slate-200/80">
+              <img
+                src={book.cover_image}
+                alt={book.title}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
+          <div className="text-center">
             {book.available ? (
-               <div style={{ padding: '10px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: '6px', fontWeight: 'bold' }}>
-                 🟢 Available ({book.inventory?.available_copies} of {book.inventory?.total_copies} copies)
-               </div>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm sm:text-sm">
+                🟢 Available{" "}
+                {book.inventory && (
+                  <span className="font-normal text-emerald-700">
+                    ({book.inventory.available_copies} of{" "}
+                    {book.inventory.total_copies} copies)
+                  </span>
+                )}
+              </div>
             ) : (
-               <div style={{ padding: '10px', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '6px', fontWeight: 'bold' }}>
-                 🔴 Currently Checked Out
-               </div>
+              <div className="rounded-2xl border border-rose-200 bg-rose-50/90 px-3 py-2 text-xs font-semibold text-rose-800 shadow-sm sm:text-sm">
+                🔴 Currently checked out
+              </div>
             )}
           </div>
         </div>
 
-        {/* Right Column: Book Metadata */}
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'inline-block', backgroundColor: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', marginBottom: '10px' }}>
-            {book.category}
-          </div>
-          <h1 style={{ margin: '0 0 10px 0', fontSize: '36px', color: '#0f172a' }}>{book.title}</h1>
-          <h2 style={{ margin: '0 0 20px 0', fontSize: '20px', color: '#475569', fontWeight: 'normal' }}>by {book.author}</h2>
-          
-          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '20px', marginTop: '20px' }}>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '18px' }}>Synopsis</h3>
-            <p style={{ lineHeight: '1.6', color: '#334155' }}>{book.synopsis}</p>
+        {/* Metadata */}
+        <div className="space-y-4 sm:space-y-6">
+          <div className="space-y-2">
+            <span className="inline-flex rounded-full bg-slate-900/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100 shadow-sm sm:text-xs">
+              {book.category || "Uncategorized"}
+            </span>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl lg:text-4xl">
+              {book.title}
+            </h1>
+            <p className="text-sm text-slate-600 sm:text-base">
+              by{" "}
+              <span className="font-semibold text-slate-800">{book.author}</span>
+            </p>
           </div>
 
-          <div style={{ marginTop: '30px', padding: '15px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#64748b' }}><strong>ISBN:</strong> {book.isbn}</p>
-            <p style={{ margin: '0', fontSize: '14px', color: '#64748b' }}><strong>System ID:</strong> {book.book_id}</p>
+          <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 text-xs text-slate-700 shadow-inner sm:p-5 sm:text-sm">
+            <h2 className="text-sm font-semibold text-slate-900 sm:text-base">
+              Synopsis
+            </h2>
+            <p className="leading-relaxed text-slate-700">{book.synopsis}</p>
+          </div>
+
+          <div className="grid gap-3 text-xs text-slate-700 sm:grid-cols-2 sm:text-sm">
+            <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3 shadow-sm sm:p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-xs">
+                ISBN
+              </p>
+              <p className="mt-1 font-mono text-sm text-slate-900 sm:text-base">
+                {book.isbn}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3 shadow-sm sm:p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-xs">
+                System ID
+              </p>
+              <p className="mt-1 font-mono text-sm text-slate-900 sm:text-base">
+                {book.book_id}
+              </p>
+            </div>
           </div>
         </div>
-
-      </div>
+      </section>
     </div>
   );
 }

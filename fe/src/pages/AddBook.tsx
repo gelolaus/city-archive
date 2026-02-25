@@ -52,13 +52,20 @@ export default function AddBook() {
   };
 
   return (
-    <div style={{ padding: '30px', maxWidth: '600px', margin: '40px auto', fontFamily: 'sans-serif', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-      <h2 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '15px', marginTop: 0 }}>Add New Book to Catalog</h2>
-      
-      {error && <div style={{ color: '#b91c1c', marginBottom: '15px', padding: '10px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px' }}>{error}</div>}
-      {success && <div style={{ color: '#15803d', marginBottom: '15px', padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px' }}>{success}</div>}
+    <div style={{ padding: '24px 0', fontFamily: 'sans-serif' }}>
+      <div style={{ marginBottom: '20px' }}>
+        <h2 style={{ marginTop: 0, fontSize: '26px', fontWeight: 600 }}>Quick Add Book</h2>
+        <p style={{ color: '#64748b', marginTop: '6px', marginBottom: 0, fontSize: '14px' }}>
+          Lightweight form for manually inserting a single title.
+        </p>
+      </div>
+      <div style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '30px' }}>
+        <h2 style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '15px', marginTop: 0 }}>Add New Book to Catalog</h2>
+        
+        {error && <div style={{ color: '#b91c1c', marginBottom: '15px', padding: '10px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px' }}>{error}</div>}
+        {success && <div style={{ color: '#15803d', marginBottom: '15px', padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px' }}>{success}</div>}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         
         {/* ROW 1: Title and ISBN */}
         <div style={{ display: 'flex', gap: '15px' }}>
@@ -114,6 +121,7 @@ export default function AddBook() {
           {loading ? "Adding to Databases..." : "Add Book"}
         </button>
       </form>
+      </div>
     </div>
   );
 }

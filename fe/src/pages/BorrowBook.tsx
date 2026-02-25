@@ -82,13 +82,17 @@ export default function BorrowBook() {
 
   return (
     <div>
-      <h2>Issue Book Loan</h2>
-      <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '30px' }}>Process a new borrowing transaction securely.</p>
+      <div style={{ marginBottom: '20px' }}>
+        <h2 style={{ fontSize: '26px', fontWeight: 600, margin: 0 }}>Issue Book Loan</h2>
+        <p style={{ color: '#64748b', marginTop: '6px', marginBottom: 0, fontSize: '14px' }}>
+          Process a new borrowing transaction securely.
+        </p>
+      </div>
 
-      {error && <div style={{ color: '#b91c1c', marginBottom: '15px', padding: '10px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', maxWidth: '600px' }}>{error}</div>}
-      {success && <div style={{ color: '#15803d', marginBottom: '15px', padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px', maxWidth: '600px' }}>{success}</div>}
+      {error && <div style={{ color: '#b91c1c', marginBottom: '15px', padding: '10px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px' }}>{error}</div>}
+      {success && <div style={{ color: '#15803d', marginBottom: '15px', padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px' }}>{success}</div>}
 
-      <form onSubmit={handleBorrow} style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '600px', backgroundColor: 'white', padding: '30px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+      <form onSubmit={handleBorrow} style={{ display: 'flex', flexDirection: 'column', gap: '25px', backgroundColor: 'white', padding: '30px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           
           {/* 1. MEMBER DROPDOWN */}
           <div style={{ position: 'relative' }}>
