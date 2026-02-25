@@ -48,28 +48,11 @@ export default function SystemDiagnostics() {
   };
 
   return (
-    <div style={{ fontFamily: "sans-serif" }}>
-      <div style={{ marginBottom: "20px" }}>
-        <h2
-          style={{
-            fontSize: "26px",
-            fontWeight: 600,
-            margin: 0,
-          }}
-        >
-          System Diagnostics & Sync
-        </h2>
-        <p
-          style={{
-            color: "#64748b",
-            marginTop: "6px",
-            marginBottom: 0,
-            fontSize: "14px",
-          }}
-        >
-          Monitor and repair polyglot persistence integrity.
-        </p>
-      </div>
+    <div style={{ fontFamily: 'sans-serif' }}>
+      <h2>System Diagnostics & Sync</h2>
+      <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '30px' }}>
+        Monitor and repair polyglot persistence integrity.
+      </p>
 
       <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
         <button
@@ -109,13 +92,14 @@ export default function SystemDiagnostics() {
       {error && (
         <div
           style={{
-            color: "#b91c1c",
-            marginBottom: "15px",
-            padding: "15px",
-            backgroundColor: "#fef2f2",
-            border: "1px solid #fca5a5",
-            borderRadius: "4px",
-            fontWeight: "bold",
+            color: '#b91c1c',
+            marginBottom: '15px',
+            padding: '15px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fca5a5',
+            borderRadius: '4px',
+            maxWidth: '800px',
+            fontWeight: 'bold',
           }}
         >
           {error}
@@ -124,13 +108,14 @@ export default function SystemDiagnostics() {
       {success && (
         <div
           style={{
-            color: "#15803d",
-            marginBottom: "15px",
-            padding: "15px",
-            backgroundColor: "#f0fdf4",
-            border: "1px solid #86efac",
-            borderRadius: "4px",
-            fontWeight: "bold",
+            color: '#15803d',
+            marginBottom: '15px',
+            padding: '15px',
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #86efac',
+            borderRadius: '4px',
+            maxWidth: '800px',
+            fontWeight: 'bold',
           }}
         >
           {success}
@@ -142,7 +127,8 @@ export default function SystemDiagnostics() {
           style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gap: '20px'
+            gap: '20px',
+            maxWidth: '1000px',
           }}
         >
           {/* MySQL Orphans */}

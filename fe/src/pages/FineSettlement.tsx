@@ -43,28 +43,11 @@ export default function FineSettlement() {
   };
 
   return (
-    <div style={{ fontFamily: "sans-serif" }}>
-      <div style={{ marginBottom: "20px" }}>
-        <h2
-          style={{
-            fontSize: "26px",
-            fontWeight: 600,
-            margin: 0,
-          }}
-        >
-          Fine Settlement Operations
-        </h2>
-        <p
-          style={{
-            color: "#64748b",
-            marginTop: "6px",
-            marginBottom: "0",
-            fontSize: "14px",
-          }}
-        >
-          Process penalty payments and clear member ledgers.
-        </p>
-      </div>
+    <div style={{ fontFamily: 'sans-serif' }}>
+      <h2>Fine Settlement Operations</h2>
+      <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '30px' }}>
+        Process penalty payments and clear member ledgers.
+      </p>
 
       {error && (
         <div
@@ -74,7 +57,8 @@ export default function FineSettlement() {
             padding: '10px',
             backgroundColor: '#fef2f2',
             border: '1px solid #fca5a5',
-            borderRadius: '4px'
+            borderRadius: '4px',
+            maxWidth: '800px',
           }}
         >
           {error}
@@ -88,7 +72,8 @@ export default function FineSettlement() {
             padding: '10px',
             backgroundColor: '#f0fdf4',
             border: '1px solid #86efac',
-            borderRadius: '4px'
+            borderRadius: '4px',
+            maxWidth: '800px',
           }}
         >
           {success}
@@ -101,7 +86,8 @@ export default function FineSettlement() {
           borderRadius: '8px',
           border: '1px solid #e2e8f0',
           overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          maxWidth: '900px',
         }}
       >
         <table

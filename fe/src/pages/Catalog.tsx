@@ -1,29 +1,35 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import api from "../api/axios";
 
 export default function Catalog() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-
+  
+  // States for our Search & Filters
   const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
-  const [searchType, setSearchType] = useState("all");
-  const [availabilityFilter, setAvailabilityFilter] = useState("all");
-
+  const [searchType, setSearchType] = useState("all"); // 'all', 'title', 'author'
+  const [availabilityFilter, setAvailabilityFilter] = useState("all"); // 'all', 'available', 'borrowed'
+  
   const [books, setBooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Check if user is logged in to toggle the top-right button
+  const isLoggedIn = !!localStorage.getItem("token");
+
+  // Fetch books from the backend (We will upgrade the backend to handle these filters next!)
   const fetchBooks = async () => {
     setLoading(true);
     setError("");
     try {
+      // Sending all our filter states to the backend
       const response = await api.get("/books/search", {
-        params: {
-          keyword,
+        params: { 
+          keyword: keyword,
           type: searchType,
-          status: availabilityFilter,
-        },
+          status: availabilityFilter
+        }
       });
       setBooks(response.data.data || []);
     } catch (err: any) {
@@ -33,164 +39,117 @@ export default function Catalog() {
     }
   };
 
+  // Run fetch automatically if a keyword was passed from the Dashboard Quick Search
   useEffect(() => {
-    void fetchBooks();
+    fetchBooks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
+    // Update the URL so it can be shared/bookmarked
     setSearchParams(keyword ? { keyword } : {});
-    void fetchBooks();
+    fetchBooks();
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      {/* Hero search shell */}
-      <section className="space-y-4 rounded-3xl border border-white/60 bg-white/75 p-5 shadow-2xl shadow-orange-200/60 ring-1 ring-white/60 backdrop-blur-2xl sm:p-6">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Public catalog
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-              Search the City Archive
-            </h1>
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Discover titles by keyword, author, or category. Results are always
-              live from the same backend powering member dashboards.
-            </p>
-          </div>
-        </div>
+    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+      
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #ccc', paddingBottom: '10px', marginBottom: '20px' }}>
+        <h2>City Archive | Public Catalog</h2>
+        {isLoggedIn ? (
+          <Link to="/dashboard" style={{ padding: '8px 16px', backgroundColor: '#0f172a', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>Go to Dashboard</Link>
+        ) : (
+          <Link to="/login" style={{ padding: '8px 16px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>Member Login</Link>
+        )}
+      </div>
 
-        <form
-          onSubmit={handleSearch}
-          className="mt-3 space-y-3 sm:mt-4 sm:space-y-4"
-        >
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <div className="flex flex-1 items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1.5 text-sm shadow-lg shadow-slate-200/60 backdrop-blur-xl focus-within:border-sky-300 focus-within:ring-2 focus-within:ring-sky-200/80">
-              <div className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-slate-900/90 text-[11px] text-amber-100">
-                🔎
-              </div>
-              <input
-                type="text"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder="Search books, authors, or ISBNs..."
-                className="h-8 flex-1 border-none bg-transparent text-xs text-slate-900 placeholder:text-slate-400 outline-none sm:text-sm"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-amber-50 shadow-lg shadow-slate-900/25 transition hover:bg-slate-800 hover:shadow-xl active:scale-[0.99] sm:w-auto sm:text-sm"
-            >
-              {loading ? "Searching..." : "Search catalog"}
+      {/* Feature 1 & 2: Search Bar and Filters */}
+      <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input
+              type="text"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="Search books, authors, or ISBNs..."
+              style={{ flex: 1, padding: '12px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '16px' }}
+            />
+            <button type="submit" style={{ padding: '12px 24px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              {loading ? "Searching..." : "Search Catalog"}
             </button>
           </div>
 
-          <div className="flex flex-col gap-2 text-[11px] text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:text-xs">
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 shadow-sm">
-                <span className="text-[11px] font-semibold text-slate-600 sm:text-xs">
-                  Search in
-                </span>
-                <select
-                  value={searchType}
-                  onChange={(e) => setSearchType(e.target.value)}
-                  className="h-7 rounded-full border border-slate-200/80 bg-white/80 px-2 text-[11px] text-slate-700 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-200/80 sm:text-xs"
-                >
-                  <option value="all">Anywhere</option>
-                  <option value="title">Title only</option>
-                  <option value="author">Author only</option>
-                </select>
-              </div>
+          <div style={{ display: 'flex', gap: '20px', fontSize: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontWeight: 'bold' }}>Search In:</label>
+              <select value={searchType} onChange={(e) => setSearchType(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}>
+                <option value="all">Anywhere</option>
+                <option value="title">Title Only</option>
+                <option value="author">Author Only</option>
+              </select>
+            </div>
 
-              <div className="flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 shadow-sm">
-                <span className="text-[11px] font-semibold text-slate-600 sm:text-xs">
-                  Availability
-                </span>
-                <select
-                  value={availabilityFilter}
-                  onChange={(e) => setAvailabilityFilter(e.target.value)}
-                  className="h-7 rounded-full border border-slate-200/80 bg-white/80 px-2 text-[11px] text-slate-700 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-200/80 sm:text-xs"
-                >
-                  <option value="all">All books</option>
-                  <option value="available">Available now</option>
-                  <option value="borrowed">Currently borrowed</option>
-                </select>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontWeight: 'bold' }}>Availability:</label>
+              <select value={availabilityFilter} onChange={(e) => setAvailabilityFilter(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}>
+                <option value="all">Show All Books</option>
+                <option value="available">Available Now</option>
+                <option value="borrowed">Currently Borrowed</option>
+              </select>
             </div>
           </div>
+
         </form>
-      </section>
+      </div>
 
-      {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-xs font-medium text-rose-700 shadow-sm sm:text-sm">
-          {error}
-        </div>
-      )}
+      {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
 
-      {/* Results grid */}
-      <section className="rounded-3xl border border-white/60 bg-white/80 p-4 shadow-xl shadow-slate-200/70 backdrop-blur-xl sm:p-5">
+      {/* Result Grid */}
+      <div>
         {books.length === 0 && !loading ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-10 text-center text-sm text-slate-500 sm:px-8 sm:text-base">
-            <h2 className="text-lg font-semibold text-slate-800 sm:text-xl">
-              No books found
-            </h2>
-            <p className="mt-1 max-w-md text-xs text-slate-500 sm:text-sm">
-              Try broadening your search, or clear one of the filters above to
-              explore more of the collection.
-            </p>
+          <div style={{ textAlign: 'center', padding: '50px', color: '#64748b', border: '1px dashed #cbd5e1', borderRadius: '8px' }}>
+            <h3>No books found.</h3>
+            <p>Try adjusting your search filters.</p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
             {books.map((book) => (
-              <button
-                key={book.book_id}
-                type="button"
+              // Feature 3 & 4: Clickable card leading to Book Page (No direct borrow button)
+              <div 
+                key={book.book_id} 
                 onClick={() => navigate(`/book/${book.book_id}`)}
-                className="flex flex-col rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-left text-sm text-slate-900 shadow-sm shadow-slate-200/70 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', cursor: 'pointer', transition: 'box-shadow 0.2s', backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'}
               >
-                <div className="mb-2 flex items-start justify-between gap-3">
-                  <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 sm:text-[15px]">
-                    {book.title}
-                  </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                  <h3 style={{ margin: '0', fontSize: '18px', color: '#0f172a' }}>{book.title}</h3>
+                  
+                  {/* Visual Status Indicator */}
                   {book.available ? (
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                      Available
-                    </span>
+                    <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>Available</span>
                   ) : (
-                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                      Borrowed
-                    </span>
+                    <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>Borrowed</span>
                   )}
                 </div>
-
-                <div className="mb-3 space-y-1 text-[11px] text-slate-600 sm:text-xs">
-                  <p>
-                    <span className="font-semibold text-slate-700">Author:</span>{" "}
-                    {book.author}
-                  </p>
-                  <p>
-                    <span className="font-semibold text-slate-700">
-                      Category:
-                    </span>{" "}
-                    {book.category}
-                  </p>
+                
+                <div style={{ color: '#475569', fontSize: '14px', marginBottom: '15px' }}>
+                  <p style={{ margin: '0 0 5px 0' }}><strong>Author:</strong> {book.author}</p>
+                  <p style={{ margin: '0 0 5px 0' }}><strong>Category:</strong> {book.category}</p>
                 </div>
 
-                <div className="mt-auto flex items-center justify-between text-[11px] text-slate-500 sm:text-xs">
-                  <span className="font-medium text-slate-600">
-                    View details
-                  </span>
-                  <span>→</span>
+                <div style={{ textAlign: 'right', fontSize: '14px', color: '#2563eb', fontWeight: 'bold' }}>
+                  View Details →
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
-      </section>
+      </div>
+
     </div>
   );
 }

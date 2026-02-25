@@ -178,31 +178,57 @@ export default function LoansDashboard() {
   }, [returnSearch, activeLoans]);
 
   return (
-    <div className="space-y-5 text-slate-900">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Loans & Circulation
-        </h2>
-        <p className="mt-2 text-sm text-slate-600 sm:text-base">
-          Unified view for issuing, tracking, and closing all active loans.
-        </p>
-      </div>
+    <div style={{ fontFamily: "sans-serif" }}>
+      <h2>Loans & Circulation</h2>
+      <p
+        style={{
+          color: "#64748b",
+          marginTop: "-10px",
+          marginBottom: "24px",
+        }}
+      >
+        Unified view for issuing, tracking, and closing all active loans.
+      </p>
 
       {globalError && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700 shadow-sm sm:text-sm">
+        <div
+          style={{
+            color: "#b91c1c",
+            marginBottom: "15px",
+            padding: "10px",
+            backgroundColor: "#fef2f2",
+            border: "1px solid #fca5a5",
+            borderRadius: "4px",
+          }}
+        >
           {globalError}
         </div>
       )}
 
       {globalSuccess && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-700 shadow-sm sm:text-sm">
+        <div
+          style={{
+            color: "#15803d",
+            marginBottom: "15px",
+            padding: "10px",
+            backgroundColor: "#f0fdf4",
+            border: "1px solid #86efac",
+            borderRadius: "4px",
+          }}
+        >
           {globalSuccess}
         </div>
       )}
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+      <div
+        style={{
+          display: "flex",
+          gap: "20px",
+          alignItems: "flex-start",
+        }}
+      >
         {/* MIDDLE COLUMN: ACTIVE LEDGER */}
-        <div style={{ flex: 1.6, minWidth: 0 }}>
+        <div style={{ flex: 2, minWidth: 0 }}>
           <div
             style={{
               backgroundColor: "white",
@@ -383,7 +409,7 @@ export default function LoansDashboard() {
         </div>
 
         {/* RIGHT COLUMN: ISSUE + RETURN PANELS */}
-        <div style={{ flex: 1.4, display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "20px" }}>
           {/* Issue Loan */}
           <div
             style={{

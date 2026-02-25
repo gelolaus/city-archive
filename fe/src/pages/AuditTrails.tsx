@@ -26,13 +26,11 @@ export default function AuditTrails() {
   const pagedLogs = logs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div style={{ padding: '24px 0', fontFamily: 'sans-serif' }}>
-      <div style={{ marginBottom: '20px' }}>
-        <h2 style={{ marginTop: 0, fontSize: '26px', fontWeight: 600 }}>📋 Administrative Audit Trails</h2>
-        <p style={{ color: '#64748b', marginTop: '6px', marginBottom: 0, fontSize: '14px' }}>
-          Immutable log of all staff actions and system events.
-        </p>
-      </div>
+    <div style={{ padding: '40px', backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      <h2 style={{marginTop: 0}}>📋 Administrative Audit Trails</h2>
+      <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '30px' }}>
+        Immutable log of all staff actions and system events.
+      </p>
       
       <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', backgroundColor: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
       <input

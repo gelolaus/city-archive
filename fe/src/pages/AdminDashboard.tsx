@@ -46,30 +46,19 @@ export default function AdminDashboard() {
 
   // Helper component for clean tables
   const StatTable = ({ title, data, columns, renderRow }: any) => (
-    <div className="overflow-hidden rounded-2xl border border-white/60 bg-white/80 shadow-xl shadow-orange-200/60 backdrop-blur-xl">
-      <div className="border-b border-slate-100/80 bg-slate-50/80 px-5 py-3.5">
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+    <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+      <div style={{ backgroundColor: '#f8fafc', padding: '15px 20px', borderBottom: '1px solid #e2e8f0' }}>
+        <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>{title}</h3>
       </div>
-      <table className="w-full border-collapse text-left text-xs text-slate-800 sm:text-sm">
-        <thead className="bg-slate-50/80 text-slate-500">
-          <tr>
-            {columns.map((col: string, i: number) => (
-              <th key={i} className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide sm:text-xs">
-                {col}
-              </th>
-            ))}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
+        <thead>
+          <tr style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>
+            {columns.map((col: string, i: number) => <th key={i} style={{ padding: '12px 20px', fontWeight: 'bold' }}>{col}</th>)}
           </tr>
         </thead>
         <tbody>
           {data.length === 0 ? (
-            <tr>
-              <td
-                colSpan={columns.length}
-                className="px-5 py-4 text-center text-xs text-slate-500"
-              >
-                No data available yet.
-              </td>
-            </tr>
+            <tr><td colSpan={columns.length} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>No data available yet.</td></tr>
           ) : (
             data.map((item: any, i: number) => renderRow(item, i))
           )}
@@ -79,77 +68,122 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="space-y-7 text-slate-900">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Librarian Command Center
-        </h2>
-        <p className="mt-2 text-sm text-slate-600 sm:text-base">
-          Live system diagnostics and behavioral analytics across the catalog.
-        </p>
+    <div style={{ fontFamily: 'sans-serif' }}>
+      <h2>Librarian Command Center</h2>
+      <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '30px' }}>
+        Live system diagnostics and behavioral analytics.
+      </p>
+
+      {error && <div style={{ color: '#b91c1c', marginBottom: '15px' }}>{error}</div>}
+
+      {/* Top 4 KPI Cards */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '20px',
+          marginBottom: '30px',
+        }}
+      >
+        <div
+          style={{
+            padding: '20px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            borderTop: '4px solid #3b82f6',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}
+        >
+          <h3
+            style={{
+              margin: '0 0 10px 0',
+              color: '#475569',
+              fontSize: '14px',
+              textTransform: 'uppercase',
+            }}
+          >
+            Total Inventory
+          </h3>
+          <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.totalBooks}</p>
+        </div>
+        <div
+          style={{
+            padding: '20px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            borderTop: '4px solid #f59e0b',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}
+        >
+          <h3
+            style={{
+              margin: '0 0 10px 0',
+              color: '#475569',
+              fontSize: '14px',
+              textTransform: 'uppercase',
+            }}
+          >
+            Active Loans
+          </h3>
+          <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.activeLoans}</p>
+        </div>
+        <div
+          style={{
+            padding: '20px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            borderTop: '4px solid #ef4444',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}
+        >
+          <h3
+            style={{
+              margin: '0 0 10px 0',
+              color: '#475569',
+              fontSize: '14px',
+              textTransform: 'uppercase',
+            }}
+          >
+            Unpaid Fines
+          </h3>
+          <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.unpaidFines}</p>
+        </div>
+        <div
+          style={{
+            padding: '20px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            borderTop: '4px solid #10b981',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          }}
+        >
+          <h3
+            style={{
+              margin: '0 0 10px 0',
+              color: '#475569',
+              fontSize: '14px',
+              textTransform: 'uppercase',
+            }}
+          >
+            Total Catalog Views
+          </h3>
+          <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.systemViews}</p>
+        </div>
       </div>
 
-      {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700 shadow-sm sm:text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* KPI cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-sky-200 bg-white/80 px-4 py-4 shadow-lg shadow-orange-200/60 backdrop-blur-xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Total inventory
-          </p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-            {stats.totalBooks}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-amber-200 bg-white/80 px-4 py-4 shadow-lg shadow-orange-200/60 backdrop-blur-xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Active loans
-          </p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-            {stats.activeLoans}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-rose-200 bg-white/80 px-4 py-4 shadow-lg shadow-orange-200/60 backdrop-blur-xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Unpaid fines
-          </p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-rose-600 sm:text-4xl">
-            {stats.unpaidFines}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-emerald-200 bg-white/80 px-4 py-4 shadow-lg shadow-orange-200/60 backdrop-blur-xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Catalog views
-          </p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-            {stats.systemViews}
-          </p>
-        </div>
-      </div>
-
-      {/* Analytics tables */}
+      {/* Detailed Analytics Tables */}
       {!loading && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
           <StatTable
             title="🏆 Most Borrowed Books"
             columns={["Title", "Borrows", "Avg Return Time"]}
             data={analytics.topBorrowed}
             renderRow={(item: any, i: number) => (
-              <tr key={i} className="border-t border-slate-100">
-                <td className="px-5 py-2.5 text-xs font-semibold text-slate-900 sm:text-sm">
-                  {item.title}
-                </td>
-                <td className="px-5 py-2.5 text-xs text-slate-700 sm:text-sm">
-                  {item.total_borrows}
-                </td>
-                <td className="px-5 py-2.5 text-xs text-slate-600 sm:text-sm">
-                  {item.avg_return_time_days > 0
-                    ? `${item.avg_return_time_days} days`
-                    : "N/A"}
+              <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '12px 20px', color: '#2563eb', fontWeight: 'bold' }}>{item.title}</td>
+                <td style={{ padding: '12px 20px' }}>{item.total_borrows}</td>
+                <td style={{ padding: '12px 20px' }}>
+                  {item.avg_return_time_days > 0 ? `${item.avg_return_time_days} days` : 'N/A'}
                 </td>
               </tr>
             )}
@@ -160,14 +194,10 @@ export default function AdminDashboard() {
             columns={["Title", "Views", "Conversion Rate"]}
             data={analytics.topViewed}
             renderRow={(item: any, i: number) => (
-              <tr key={i} className="border-t border-slate-100">
-                <td className="px-5 py-2.5 text-xs font-semibold text-slate-900 sm:text-sm">
-                  {item.title}
-                </td>
-                <td className="px-5 py-2.5 text-xs text-slate-700 sm:text-sm">
-                  {item.total_views}
-                </td>
-                <td className="px-5 py-2.5 text-xs text-emerald-700 sm:text-sm">
+              <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '12px 20px', color: '#2563eb', fontWeight: 'bold' }}>{item.title}</td>
+                <td style={{ padding: '12px 20px' }}>{item.total_views}</td>
+                <td style={{ padding: '12px 20px' }}>
                   {(item.conversion_rate * 100).toFixed(1)}%
                 </td>
               </tr>
@@ -175,20 +205,14 @@ export default function AdminDashboard() {
           />
 
           <StatTable
-            title="⚠️ Missed Opportunities"
+            title="⚠️ Missed Opportunities (High View, Low Borrow)"
             columns={["Title", "Views", "Borrows"]}
             data={analytics.lowConversion}
             renderRow={(item: any, i: number) => (
-              <tr key={i} className="border-t border-slate-100">
-                <td className="px-5 py-2.5 text-xs font-semibold text-slate-900 sm:text-sm">
-                  {item.title}
-                </td>
-                <td className="px-5 py-2.5 text-xs text-slate-700 sm:text-sm">
-                  {item.total_views}
-                </td>
-                <td className="px-5 py-2.5 text-xs font-semibold text-rose-700 sm:text-sm">
-                  {item.total_borrows}
-                </td>
+              <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <td style={{ padding: '12px 20px', color: '#2563eb', fontWeight: 'bold' }}>{item.title}</td>
+                <td style={{ padding: '12px 20px' }}>{item.total_views}</td>
+                <td style={{ padding: '12px 20px', color: '#dc2626' }}>{item.total_borrows}</td>
               </tr>
             )}
           />
@@ -198,16 +222,20 @@ export default function AdminDashboard() {
             columns={["Query Data", "Search Count"]}
             data={analytics.topSearches}
             renderRow={(item: any, i: number) => {
-              const cleanQuery =
-                item.query.split("|")[0].replace("keyword:", "") || "Empty Search";
+              // Formatting the raw query string (e.g., "keyword:xyz|type:all") for better UI
+              const cleanQuery = item.query.split('|')[0].replace('keyword:', '') || "Empty Search";
               return (
-                <tr key={i} className="border-t border-slate-100">
-                  <td className="px-5 py-2.5 font-mono text-xs text-slate-800 sm:text-sm">
+                <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td
+                    style={{
+                      padding: '12px 20px',
+                      fontFamily: 'monospace',
+                      backgroundColor: '#f8fafc',
+                    }}
+                  >
                     "{cleanQuery}"
                   </td>
-                  <td className="px-5 py-2.5 text-xs text-slate-700 sm:text-sm">
-                    {item.count}
-                  </td>
+                  <td style={{ padding: '12px 20px' }}>{item.count}</td>
                 </tr>
               );
             }}

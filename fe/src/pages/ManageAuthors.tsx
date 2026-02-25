@@ -77,23 +77,14 @@ export default function ManageAuthors() {
     } finally { setAddLoading(false); }
   };
 
-  const handleUpdate = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!editingAuthor) return;
-    setManageError("");
-    setManageSuccess("");
+  const handleUpdate = async (e: FormEvent) => { /* ... existing logic ... */ 
+    e.preventDefault(); if (!editingAuthor) return;
+    setManageError(""); setManageSuccess("");
     try {
-      await api.put(
-        `/books/admin/authors/${editingAuthor.author_id}`,
-        editForm,
-        { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } },
-      );
+      await api.put(`/books/admin/authors/${editingAuthor.author_id}`, editForm, { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } });
       setManageSuccess("Author updated successfully.");
-      setEditingAuthor(null);
-      await refreshAuthors();
-    } catch (err: any) {
-      setManageError(err.response?.data?.message || "Update failed.");
-    }
+      setEditingAuthor(null); await refreshAuthors();
+    } catch (err: any) { setManageError(err.response?.data?.message || "Update failed."); }
   };
   const handleDelete = async (id: number, name: string) => { /* ... existing logic ... */ 
     if (!window.confirm(`Archive ${name}? They will be permanently deleted after 30 days.`)) return;
@@ -115,12 +106,6 @@ export default function ManageAuthors() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div>
-        <h2 style={{ fontSize: "26px", fontWeight: 600, margin: 0 }}>Author Registry</h2>
-        <p style={{ color: "#64748b", marginTop: "6px", marginBottom: 0, fontSize: "14px" }}>
-          Maintain the active list of authors used throughout the catalog.
-        </p>
-      </div>
       
       {/* NEW: ADD AUTHOR SECTION */}
       <section style={{ backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", padding: "24px 28px" }}>
