@@ -11,6 +11,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import BorrowBook from './pages/BorrowBook';
 import ReturnBook from './pages/ReturnBook';
 import FineSettlement from './pages/FineSettlement';
+import SystemDiagnostics from './pages/SystemDiagnostics';
+import ManageBooks from './pages/ManageBooks';
+import ArchiveVault from './pages/ArchiveVault';
 
 function App() {
   return (
@@ -35,6 +38,9 @@ function App() {
           <Route path="/add-book" element={<AddBook />} />
           <Route path="/admin/return" element={<ReturnBook />} />
           <Route path="/admin/fines" element={<FineSettlement />} />
+          <Route path="/admin/diagnostics" element={<SystemDiagnostics />} />
+          <Route path="/admin/manage-books" element={<ManageBooks />} />
+          <Route path="/admin/vault" element={<ArchiveVault />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />

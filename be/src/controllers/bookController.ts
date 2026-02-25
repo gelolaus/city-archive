@@ -27,7 +27,10 @@ export const searchBooks = async (req: Request, res: Response): Promise<void> =>
                     ...book,
                     available: mongoData ? mongoData.inventory.available_copies > 0 : book.available,
                     synopsis: mongoData?.synopsis || 'No synopsis available.',
-                    cover_image: mongoData?.cover_image_url || 'https://via.placeholder.com/300x450?text=No+Cover'
+                    cover_image: mongoData?.cover_image_url || 'https://via.placeholder.com/300x450?text=No+Cover',
+                    
+                    // FIX: Extract the total_copies from MongoDB so the Admin table can use it!
+                    total_copies: mongoData ? mongoData.inventory.total_copies : 1
                 };
             })
         );
@@ -237,7 +240,6 @@ export const getActiveLoansByMember = async (req: Request, res: Response): Promi
     }
 };
 
-// Add these to the bottom of bookController.ts
 export const getUnpaidFines = async (req: Request, res: Response): Promise<void> => {
     try {
         // Fetch all unpaid fines, joining members and books for human-readable context
@@ -298,5 +300,172 @@ export const settleFine = async (req: Request, res: Response): Promise<void> => 
         res.status(200).json({ status: 'success', message: 'Fine settled and recorded in ledger.' });
     } catch (error: any) {
         res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+export const runDiagnostics = async (req: Request, res: Response): Promise<void> => {
+    try {
+        // 1. Fetch the master record of all books in MySQL
+        const [mysqlBooks]: any = await mysqlPool.execute('SELECT book_id, title FROM books');
+        const mysqlIds = mysqlBooks.map((b: any) => b.book_id);
+
+        // 2. Fetch the master record of all rich documents in MongoDB
+        const mongoBooks = await BookContent.find({}, 'mysql_book_id');
+        const mongoIds = mongoBooks.map(b => b.mysql_book_id);
+
+        // 3. Mathematical Set Difference (Find the Orphans)
+        const mysqlOrphans = mysqlBooks.filter((b: any) => !mongoIds.includes(b.book_id));
+        const mongoOrphans = mongoBooks.filter(b => !mysqlIds.includes(b.mysql_book_id));
+
+        res.status(200).json({
+            status: 'success',
+            data: {
+                mysqlOrphans,
+                mongoOrphans,
+                isHealthy: mysqlOrphans.length === 0 && mongoOrphans.length === 0
+            }
+        });
+    } catch (error: any) {
+        console.error('Diagnostics Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to run system diagnostics.' });
+    }
+};
+
+export const repairDatabases = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const [mysqlBooks]: any = await mysqlPool.execute('SELECT book_id, title FROM books');
+        const mysqlIds = mysqlBooks.map((b: any) => b.book_id);
+        const mongoBooks = await BookContent.find({}, 'mysql_book_id');
+        const mongoIds = mongoBooks.map(b => b.mysql_book_id);
+
+        const mysqlOrphans = mysqlBooks.filter((b: any) => !mongoIds.includes(b.book_id));
+        const mongoOrphans = mongoBooks.filter(b => !mysqlIds.includes(b.mysql_book_id));
+
+        // AUTO-REPAIR 1: Create missing MongoDB documents for MySQL books
+        for (const orphan of mysqlOrphans) {
+            await BookContent.create({
+                mysql_book_id: orphan.book_id,
+                synopsis: 'SYSTEM RECOVERY: Auto-generated document. Please update synopsis.',
+                cover_image_url: 'https://via.placeholder.com/300x450?text=Recovered+Data',
+                inventory: { total_copies: 1, available_copies: 1 }
+            });
+        }
+
+        // AUTO-REPAIR 2: Delete ghost MongoDB documents that have no MySQL parent
+        for (const orphan of mongoOrphans) {
+            await BookContent.deleteOne({ _id: orphan._id });
+            await BookAnalytics.deleteOne({ book_mongo_id: orphan._id }); // Clean analytics too
+        }
+
+        res.status(200).json({ status: 'success', message: 'Databases successfully synchronized.' });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: 'Failed to execute auto-repair.' });
+    }
+};
+
+export const updateBookDetails = async (req: Request, res: Response): Promise<void> => {
+    const bookId = Number(req.params.bookId);
+    const { title, isbn, authorId, categoryId, synopsis, coverImage, totalCopies } = req.body;
+
+    try {
+        // 1. Update MySQL (Relational Data)
+        await mysqlPool.execute('CALL update_book(?, ?, ?, ?, ?)', [bookId, authorId, categoryId, title, isbn]);
+
+        // 2. Update MongoDB (Rich Content)
+        await BookContent.findOneAndUpdate(
+            { mysql_book_id: bookId },
+            { 
+                synopsis: synopsis,
+                cover_image_url: coverImage,
+                'inventory.total_copies': totalCopies
+                // Note: We don't directly edit available_copies here to prevent messing up active loan math
+            }
+        );
+
+        res.status(200).json({ status: 'success', message: 'Book updated successfully.' });
+    } catch (error: any) {
+        if (error.message.includes('Duplicate entry')) {
+            res.status(400).json({ status: 'error', message: 'Update failed: ISBN already exists.' });
+        } else {
+            res.status(500).json({ status: 'error', message: error.message });
+        }
+    }
+};
+
+export const deleteBookRecord = async (req: Request, res: Response): Promise<void> => {
+    const bookId = Number(req.params.bookId);
+
+    try {
+        // 1. Delete from MySQL (This triggers trg_arc_books to save it to the Vault!)
+        await mysqlPool.execute('CALL delete_book(?)', [bookId]);
+
+        // 2. Delete from MongoDB Active Collections
+        const mongoBook = await BookContent.findOneAndDelete({ mysql_book_id: bookId });
+        if (mongoBook) {
+            await BookAnalytics.deleteOne({ book_mongo_id: mongoBook._id });
+            // The JSON payload is safely stored in MySQL's books_archive, so we don't need a Mongo archive collection!
+        }
+
+        res.status(200).json({ status: 'success', message: 'Book securely moved to 30-day archive.' });
+    } catch (error: any) {
+        // Foreign Key Protection: Prevents deleting a book that a member is currently holding!
+        if (error.message.includes('foreign key constraint')) {
+            res.status(400).json({ status: 'error', message: 'Cannot archive: This book has active loans or unpaid fines tied to it. Please process returns first.' });
+        } else {
+            res.status(500).json({ status: 'error', message: 'Failed to archive book.' });
+        }
+    }
+};
+
+export const getArchivedBooks = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const [rows]: any = await mysqlPool.execute(
+            `SELECT archive_id, original_id, record_payload, 
+                    DATE_FORMAT(archived_at, '%Y-%m-%d %H:%i') as archived_date,
+                    DATE_FORMAT(DATE_ADD(archived_at, INTERVAL 30 DAY), '%Y-%m-%d') as deletion_date
+             FROM books_archive 
+             ORDER BY archived_at DESC`
+        );
+        
+        res.status(200).json({ status: 'success', data: rows });
+    } catch (error: any) {
+        console.error('Fetch Archive Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to access the archive vault.' });
+    }
+};
+
+export const restoreBookFromVault = async (req: Request, res: Response): Promise<void> => {
+    const archiveId = Number(req.params.archiveId);
+
+    try {
+        // 1. Fetch the archive record
+        const [arcRows]: any = await mysqlPool.execute('SELECT original_id, record_payload FROM books_archive WHERE archive_id = ?', [archiveId]);
+        
+        if (arcRows.length === 0) {
+            res.status(404).json({ status: 'error', message: 'Archive record not found.' });
+            return;
+        }
+
+        // FIX: mysql2 automatically parses the JSON column into an object.
+        // We do NOT need JSON.parse() here.
+        const payload = arcRows[0].record_payload;
+        const originalId = arcRows[0].original_id;
+
+        // 2. Run MySQL Restoration Procedure
+        await mysqlPool.execute('CALL restore_book(?)', [archiveId]);
+
+        // 3. Re-create MongoDB Active Record
+        // Using the data directly from the payload object
+        await BookContent.create({
+            mysql_book_id: originalId,
+            synopsis: payload.synopsis || 'Recovered from archive.',
+            cover_image_url: payload.cover_image_url || 'https://via.placeholder.com/300x450?text=Restored',
+            inventory: { total_copies: 1, available_copies: 1 }
+        });
+
+        res.status(200).json({ status: 'success', message: 'Book successfully restored to the active catalog.' });
+    } catch (error: any) {
+        console.error('Restore Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to restore book.' });
     }
 };
