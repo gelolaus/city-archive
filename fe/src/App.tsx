@@ -8,6 +8,7 @@ import BookDetails from './pages/BookDetails';
 import LibrarianLogin from './pages/LibrarianLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import BorrowBook from './pages/BorrowBook';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
         {/* Protected Admin Pages */}
         <Route element={<ProtectedRoute role="librarian" />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/borrow" element={<BorrowBook />} />
           <Route path="/add-book" element={<AddBook />} />
         </Route>
 

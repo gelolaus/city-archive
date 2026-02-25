@@ -135,3 +135,93 @@ export const loginMember = async (req: Request, res: Response): Promise<void> =>
     }
 };
 
+export const loginLibrarian = async (req: Request, res: Response): Promise<void> => {
+    // Trim inputs to remove hidden spaces from copy-pasting
+    const identifier = String(req.body.identifier || '').trim();
+    const password = String(req.body.password || '').trim();
+    const sessionId = (req.headers['x-session-id'] as string) || `staff_sess_${Date.now()}`;
+
+    try {
+        const [rows]: any = await mysqlPool.execute('CALL get_librarian_auth(?)', [identifier]);
+        
+        // In mysql2, the result of a CALL is an array of result sets. 
+        // rows[0] is the array containing our user row.
+        const librarian = rows[0][0];
+
+        // DEBUG LOG: Check your terminal after trying to login!
+        console.log(`Login attempt for: ${identifier}. Match found: ${!!librarian}`);
+
+        if (!librarian || String(librarian.password).trim() !== password) {
+            res.status(401).json({ status: 'error', message: 'Access Denied: Invalid Librarian credentials.' });
+            return;
+        }
+
+        if (!librarian.is_active) {
+            res.status(403).json({ status: 'error', message: 'Staff account deactivated.' });
+            return;
+        }
+
+        const token = jwt.sign(
+            { id: librarian.librarian_id, role: 'librarian' },
+            process.env.JWT_SECRET || 'fallback_secret',
+            { expiresIn: '8h' }
+        );
+
+        res.status(200).json({
+            status: 'success',
+            token,
+            session_id: sessionId,
+            user: { id: librarian.librarian_id, username: librarian.username, role: 'librarian' }
+        });
+    } catch (error: any) {
+        console.error('Librarian Login Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Internal server error.' });
+    }
+};
+
+export const searchMembers = async (req: Request, res: Response): Promise<void> => {
+    const keyword = (req.query.keyword as string) || '';
+
+    try {
+        // Execute the exact MySQL procedure you provided
+        const [rows]: any = await mysqlPool.execute('CALL search_members(?)', [keyword]);
+        
+        res.status(200).json({ 
+            status: 'success', 
+            data: rows[0] // Stored procedures return arrays within arrays
+        });
+    } catch (error: any) {
+        console.error('Search Members Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to search members.' });
+    }
+};
+
+export const getDashboardData = async (req: Request, res: Response): Promise<void> => {
+    try {
+        // Extract the logged-in Member's ID securely from their JWT token
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) throw new Error('Unauthorized access');
+        
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+        const memberId = decoded.id; 
+        const filter = (req.query.filter as string) || 'all';
+
+        // Fire all 4 Dashboard MySQL Procedures concurrently!
+        const [fines]: any = await mysqlPool.execute('SELECT get_member_total_fines(?) AS total', [memberId]);
+        const [overdue]: any = await mysqlPool.execute('CALL get_member_overdue_books(?)', [memberId]);
+        const [current]: any = await mysqlPool.execute('CALL get_member_current_loans(?)', [memberId]);
+        const [history]: any = await mysqlPool.execute('CALL get_member_history(?, ?)', [memberId, filter]);
+
+        res.status(200).json({
+            status: 'success',
+            data: {
+                totalFinesPaid: parseFloat(fines[0].total || 0),
+                overdueBooks: overdue[0],
+                currentLoans: current[0],
+                history: history[0]
+            }
+        });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+};

@@ -1,7 +1,6 @@
 import { Router } from 'express';
-import { registerMember, loginMember, loginLibrarian } from '../controllers/memberController';
+import { registerMember, loginMember, loginLibrarian, searchMembers, getDashboardData } from '../controllers/memberController';
 import { validateData, registerSchema } from '../middleware/validators';
-import { searchMembers } from '../controllers/memberController';
 
 const router = Router();
 
@@ -12,6 +11,9 @@ router.post('/register', validateData(registerSchema), registerMember);
 
 // POST /api/members/login
 router.post('/login', loginMember);
+
+
+router.get('/dashboard', getDashboardData);
 
 
 // --- STAFF / LIBRARIAN ROUTES ---
