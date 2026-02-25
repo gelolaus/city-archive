@@ -1,9 +1,7 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 
 export default function BorrowBook() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -82,34 +80,15 @@ export default function BorrowBook() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken"); localStorage.removeItem("role");
-    navigate("/librarian-login");
-  };
-
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' }}>
-      
-      {/* Sidebar (Admin Layout) */}
-      <div style={{ width: '250px', backgroundColor: '#0f172a', color: 'white', padding: '20px' }}>
-        <h3>Staff Panel</h3>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '30px' }}>
-          <Link to="/admin/dashboard" style={{ color: 'white', textDecoration: 'none' }}>📊 Stats Overview</Link>
-          <Link to="/add-book" style={{ color: 'white', textDecoration: 'none' }}>📚 Add New Book</Link>
-          <Link to="/admin/borrow" style={{ color: '#38bdf8', textDecoration: 'none' }}>🤝 Issue a Loan</Link>
-          <button onClick={handleLogout} style={{ marginTop: '50px', backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer' }}>Logout</button>
-        </nav>
-      </div>
+    <div>
+      <h2>Issue Book Loan</h2>
+      <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '30px' }}>Process a new borrowing transaction securely.</p>
 
-      {/* Main Content */}
-      <div style={{ flex: 1, padding: '40px', backgroundColor: '#f8fafc' }}>
-        <h2>Issue Book Loan</h2>
-        <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '30px' }}>Process a new borrowing transaction securely.</p>
+      {error && <div style={{ color: '#b91c1c', marginBottom: '15px', padding: '10px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', maxWidth: '600px' }}>{error}</div>}
+      {success && <div style={{ color: '#15803d', marginBottom: '15px', padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px', maxWidth: '600px' }}>{success}</div>}
 
-        {error && <div style={{ color: '#b91c1c', marginBottom: '15px', padding: '10px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', maxWidth: '600px' }}>{error}</div>}
-        {success && <div style={{ color: '#15803d', marginBottom: '15px', padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px', maxWidth: '600px' }}>{success}</div>}
-
-        <form onSubmit={handleBorrow} style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '600px', backgroundColor: 'white', padding: '30px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+      <form onSubmit={handleBorrow} style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '600px', backgroundColor: 'white', padding: '30px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           
           {/* 1. MEMBER DROPDOWN */}
           <div style={{ position: 'relative' }}>
@@ -182,9 +161,7 @@ export default function BorrowBook() {
           <button type="submit" disabled={loading || !selectedMember || !selectedBook} style={{ padding: '15px', backgroundColor: (!selectedMember || !selectedBook) ? '#94a3b8' : '#0f172a', color: 'white', border: 'none', cursor: (!selectedMember || !selectedBook) ? 'not-allowed' : 'pointer', borderRadius: '4px', fontWeight: 'bold', fontSize: '16px', marginTop: '10px' }}>
             {loading ? "Processing Transaction..." : "Issue Loan to Member"}
           </button>
-        </form>
-
-      </div>
+      </form>
     </div>
   );
 }

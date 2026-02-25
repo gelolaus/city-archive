@@ -229,13 +229,38 @@ export const getActiveLoansByMember = async (req: Request, res: Response): Promi
     try {
         // Call the MySQL procedure to get active loans
         const [rows]: any = await mysqlPool.execute('CALL get_member_current_loans(?)', [memberId]);
-        
+
         res.status(200).json({ 
             status: 'success', 
             data: rows[0] 
         });
     } catch (error: any) {
         console.error('Fetch Loans Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch active loans.' });
+    }
+};
+
+export const getAllActiveLoans = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const [rows]: any = await mysqlPool.execute(
+            `SELECT 
+                l.loan_id,
+                CONCAT(m.first_name, ' ', m.last_name) AS member_name,
+                b.title,
+                DATE_FORMAT(l.due_date, '%Y-%m-%d') as due_date
+             FROM loans l
+             JOIN members m ON l.member_id = m.member_id
+             JOIN books b ON l.book_id = b.book_id
+             WHERE l.return_date IS NULL
+             ORDER BY l.due_date ASC`
+        );
+
+        res.status(200).json({
+            status: 'success',
+            data: rows
+        });
+    } catch (error: any) {
+        console.error('Fetch All Active Loans Error:', error.message);
         res.status(500).json({ status: 'error', message: 'Failed to fetch active loans.' });
     }
 };
@@ -393,27 +418,50 @@ export const updateBookDetails = async (req: Request, res: Response): Promise<vo
 };
 
 export const deleteBookRecord = async (req: Request, res: Response): Promise<void> => {
-    const bookId = Number(req.params.bookId);
+    const book_id = Number(req.params.bookId);
 
     try {
-        // 1. Delete from MySQL (This triggers trg_arc_books to save it to the Vault!)
-        await mysqlPool.execute('CALL delete_book(?)', [bookId]);
+        // 1. CHECK FOR ACTIVE LOANS FIRST (Manual Logic Guardrail)
+        const [activeLoans]: any = await mysqlPool.execute(
+            'SELECT loan_id FROM loans WHERE book_id = ? AND return_date IS NULL',
+            [book_id]
+        );
 
-        // 2. Delete from MongoDB Active Collections
-        const mongoBook = await BookContent.findOneAndDelete({ mysql_book_id: bookId });
+        if (activeLoans.length > 0) {
+            res.status(400).json({ 
+                status: 'error', 
+                message: 'Cannot archive: This book is currently borrowed by a member. Process the return first.' 
+            });
+            return;
+        }
+
+        // 2. CHECK FOR UNPAID FINES
+        const [unpaidFines]: any = await mysqlPool.execute(
+            'SELECT f.fine_id FROM fines f JOIN loans l ON f.loan_id = l.loan_id WHERE l.book_id = ? AND f.is_paid = FALSE',
+            [book_id]
+        );
+
+        if (unpaidFines.length > 0) {
+            res.status(400).json({ 
+                status: 'error', 
+                message: 'Cannot archive: There are outstanding unpaid fines tied to this book.' 
+            });
+            return;
+        }
+
+        // 3. PROCEED TO ARCHIVE (This triggers trg_arc_books)
+        await mysqlPool.execute('CALL delete_book(?)', [book_id]);
+
+        // 4. CLEANUP MONGODB
+        const mongoBook = await BookContent.findOneAndDelete({ mysql_book_id: book_id });
         if (mongoBook) {
             await BookAnalytics.deleteOne({ book_mongo_id: mongoBook._id });
-            // The JSON payload is safely stored in MySQL's books_archive, so we don't need a Mongo archive collection!
         }
 
         res.status(200).json({ status: 'success', message: 'Book securely moved to 30-day archive.' });
     } catch (error: any) {
-        // Foreign Key Protection: Prevents deleting a book that a member is currently holding!
-        if (error.message.includes('foreign key constraint')) {
-            res.status(400).json({ status: 'error', message: 'Cannot archive: This book has active loans or unpaid fines tied to it. Please process returns first.' });
-        } else {
-            res.status(500).json({ status: 'error', message: 'Failed to archive book.' });
-        }
+        console.error('Archive Logic Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Database error: ' + error.message });
     }
 };
 

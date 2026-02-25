@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 
 export default function ReturnBook() {
-  const navigate = useNavigate();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -68,35 +66,15 @@ export default function ReturnBook() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken"); localStorage.removeItem("role");
-    navigate("/librarian-login");
-  };
-
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' }}>
-      
-      {/* Sidebar */}
-      <div style={{ width: '250px', backgroundColor: '#0f172a', color: 'white', padding: '20px' }}>
-        <h3>Staff Panel</h3>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '30px' }}>
-          <Link to="/admin/dashboard" style={{ color: 'white', textDecoration: 'none' }}>📊 Stats Overview</Link>
-          <Link to="/add-book" style={{ color: 'white', textDecoration: 'none' }}>📚 Add New Book</Link>
-          <Link to="/admin/borrow" style={{ color: 'white', textDecoration: 'none' }}>🤝 Issue a Loan</Link>
-          <Link to="/admin/return" style={{ color: '#38bdf8', textDecoration: 'none' }}>📥 Process Return</Link>
-          <button onClick={handleLogout} style={{ marginTop: '50px', backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer' }}>Logout</button>
-        </nav>
-      </div>
+    <div>
+      <h2>Process Book Return</h2>
+      <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '30px' }}>Clear a member's active loan and restock inventory.</p>
 
-      {/* Main Content */}
-      <div style={{ flex: 1, padding: '40px', backgroundColor: '#f8fafc' }}>
-        <h2>Process Book Return</h2>
-        <p style={{ color: '#64748b', marginTop: '-10px', marginBottom: '30px' }}>Clear a member's active loan and restock inventory.</p>
+      {error && <div style={{ color: '#b91c1c', marginBottom: '15px', padding: '10px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', maxWidth: '700px' }}>{error}</div>}
+      {success && <div style={{ color: '#15803d', marginBottom: '15px', padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px', maxWidth: '700px' }}>{success}</div>}
 
-        {error && <div style={{ color: '#b91c1c', marginBottom: '15px', padding: '10px', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '4px', maxWidth: '700px' }}>{error}</div>}
-        {success && <div style={{ color: '#15803d', marginBottom: '15px', padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '4px', maxWidth: '700px' }}>{success}</div>}
-
-        <div style={{ maxWidth: '700px', backgroundColor: 'white', padding: '30px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+      <div style={{ maxWidth: '700px', backgroundColor: 'white', padding: '30px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           
           {/* 1. MEMBER DROPDOWN */}
           <div style={{ position: 'relative', marginBottom: '30px' }}>
@@ -161,7 +139,6 @@ export default function ReturnBook() {
             </div>
           )}
 
-        </div>
       </div>
     </div>
   );
