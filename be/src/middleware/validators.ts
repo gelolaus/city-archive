@@ -24,7 +24,13 @@ export const createBookSchema = z.object({
         title: z.string().min(2, 'Title must be at least 2 characters'),
         isbn: z.string().min(10, 'ISBN must be valid'),
         authorId: z.number().int().positive('Please select a valid author'),
-        categoryId: z.number().int().positive('Please select a valid category'),
+        
+        // FIX: Allow categoryId to be null if they are creating a new one
+        categoryId: z.number().int().positive('Please select a valid category').nullable().optional(),
+        
+        // FIX: Tell Zod it's okay to receive the new category name
+        newCategoryName: z.string().nullable().optional(),
+        
         synopsis: z.string().optional(),
         coverImage: z.string().url('Must be a valid URL').optional().or(z.literal('')),
         totalCopies: z.number().int().min(1, 'Must have at least 1 copy')

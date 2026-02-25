@@ -1,38 +1,29 @@
 import { useState, useEffect, type FormEvent } from "react";
 import api from "../api/axios";
 
-type Book = {
-  book_id: number;
-  title: string;
-  author: string;
-  isbn: string;
-  synopsis?: string;
-  total_copies: number;
-};
-
-type ArchiveRecord = {
-  archive_id: number;
-  original_id: number;
-  record_payload: any;
-  archived_date: string;
-  deletion_date: string;
-};
+type Book = { book_id: number; title: string; author: string; isbn: string; synopsis?: string; total_copies: number; };
+type ArchiveRecord = { archive_id: number; original_id: number; record_payload: any; archived_date: string; deletion_date: string; };
 
 export default function ManageBooks() {
   const [books, setBooks] = useState<Book[]>([]);
   const [archives, setArchives] = useState<ArchiveRecord[]>([]);
 
+  // --- Dropdown Data State ---
+  const [authorsList, setAuthorsList] = useState<any[]>([]);
+  const [categoriesList, setCategoriesList] = useState<any[]>([]);
+
   const [loadingBooks, setLoadingBooks] = useState(true);
   const [loadingArchives, setLoadingArchives] = useState(true);
 
-  // --- Search State ---
   const [bookSearch, setBookSearch] = useState("");
   const [archiveSearch, setArchiveSearch] = useState("");
 
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState("");
   const [addSuccess, setAddSuccess] = useState("");
-  const [addForm, setAddForm] = useState({ title: "", isbn: "", authorId: 1, categoryId: 2, synopsis: "", coverImage: "", totalCopies: 1 });
+  
+  // Notice we now use strings for authorName and categoryName to support typing
+  const [addForm, setAddForm] = useState({ title: "", isbn: "", authorName: "", categoryName: "", synopsis: "", coverImage: "", totalCopies: 1 });
 
   const [manageError, setManageError] = useState("");
   const [manageSuccess, setManageSuccess] = useState("");
@@ -42,27 +33,28 @@ export default function ManageBooks() {
   const [archiveError, setArchiveError] = useState("");
   const [archiveSuccess, setArchiveSuccess] = useState("");
 
-  const refreshBooks = async () => {
-    setLoadingBooks(true); setManageError("");
+  const fetchData = async () => {
+    setLoadingBooks(true); setLoadingArchives(true);
     try {
-      const res = await api.get("/books/search?keyword=&type=all&status=all");
-      setBooks(res.data.data);
-    } catch (err) { setManageError("Failed to fetch catalog."); } 
-    finally { setLoadingBooks(false); }
+      const [booksRes, arcRes, authRes, catRes] = await Promise.all([
+        api.get("/books/search?keyword=&type=all&status=all"),
+        api.get("/books/admin/archive/books", { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } }),
+        api.get("/books/admin/authors", { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } }),
+        api.get("/books/categories")
+      ]);
+      setBooks(booksRes.data.data);
+      setArchives(arcRes.data.data);
+      setAuthorsList(authRes.data.data);
+      setCategoriesList(catRes.data.data);
+    } catch (err) {
+      setManageError("Failed to fetch dashboard data.");
+    } finally {
+      setLoadingBooks(false); setLoadingArchives(false);
+    }
   };
 
-  const refreshArchives = async () => {
-    setLoadingArchives(true); setArchiveError("");
-    try {
-      const res = await api.get("/books/admin/archive/books", { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } });
-      setArchives(res.data.data);
-    } catch (err) { setArchiveError("Failed to access the Archive Vault."); } 
-    finally { setLoadingArchives(false); }
-  };
+  useEffect(() => { void fetchData(); }, []);
 
-  useEffect(() => { void refreshBooks(); void refreshArchives(); }, []);
-
-  // --- Derived Filtered Lists ---
   const filteredBooks = books.filter(b => {
     const s = bookSearch.toLowerCase();
     return b.title.toLowerCase().includes(s) || b.author.toLowerCase().includes(s) || b.isbn.includes(s) || String(b.book_id).includes(s);
@@ -76,24 +68,46 @@ export default function ManageBooks() {
 
   const handleAddChange = (e: any) => {
     const { name, value } = e.target;
-    setAddForm((prev) => ({ ...prev, [name]: name === "authorId" || name === "categoryId" || name === "totalCopies" ? Number(value) : value }));
+    setAddForm((prev) => ({ ...prev, [name]: name === "totalCopies" ? Number(value) : value }));
   };
 
   const handleAddSubmit = async (e: FormEvent) => {
     e.preventDefault(); setAddLoading(true); setAddError(""); setAddSuccess("");
+
+    // 1. Verify Author Exists
+    const selectedAuthor = authorsList.find(
+      a => `${a.first_name} ${a.last_name}`.toLowerCase() === addForm.authorName.trim().toLowerCase()
+    );
+
+    if (!selectedAuthor) {
+      setAddError("Author not found! Please add them in the 'Manage Authors' page first.");
+      setAddLoading(false);
+      return;
+    }
+
+    // 2. Check if Category exists, or if it's brand new
+    const selectedCategory = categoriesList.find(
+      c => c.category.toLowerCase() === addForm.categoryName.trim().toLowerCase()
+    );
+
+    const payload = {
+      title: addForm.title,
+      isbn: addForm.isbn,
+      authorId: selectedAuthor.author_id,
+      categoryId: selectedCategory ? selectedCategory.category_id : null, // Send ID if exists
+      newCategoryName: selectedCategory ? null : addForm.categoryName.trim(), // Send string if new
+      synopsis: addForm.synopsis,
+      coverImage: addForm.coverImage,
+      totalCopies: addForm.totalCopies
+    };
+
     try {
-      await api.post("/books/add", addForm);
+      await api.post("/books/add", payload, { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } });
       setAddSuccess("Book successfully added to the catalog!");
-      setAddForm({ title: "", isbn: "", authorId: 1, categoryId: 2, synopsis: "", coverImage: "", totalCopies: 1 });
-      await refreshBooks();
+      setAddForm({ title: "", isbn: "", authorName: "", categoryName: "", synopsis: "", coverImage: "", totalCopies: 1 });
+      await fetchData(); // Refresh everything to get new categories if one was created
     } catch (err: any) {
-      if (err.response?.data?.errors) {
-        const zodErrors = err.response.data.errors;
-        const firstErrorKey = Object.keys(zodErrors)[0];
-        setAddError(`Validation Error: ${zodErrors[firstErrorKey][0]}`);
-      } else {
-        setAddError(err.response?.data?.message || "Failed to add book.");
-      }
+      setAddError(err.response?.data?.message || "Failed to add book.");
     } finally { setAddLoading(false); }
   };
 
@@ -106,9 +120,9 @@ export default function ManageBooks() {
     e.preventDefault(); if (!editingBook) return;
     setManageError(""); setManageSuccess("");
     try {
-      await api.put(`/books/admin/manage/${editingBook.book_id}`, { ...editForm, authorId: 1, categoryId: 1 }, { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } });
+      await api.put(`/books/admin/manage/${editingBook.book_id}`, editForm, { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } });
       setManageSuccess(`"${editForm.title}" updated successfully.`);
-      setEditingBook(null); await refreshBooks();
+      setEditingBook(null); await fetchData();
     } catch (err: any) { setManageError(err.response?.data?.message || "Failed to update book."); }
   };
 
@@ -117,7 +131,7 @@ export default function ManageBooks() {
     setManageError(""); setManageSuccess("");
     try {
       await api.delete(`/books/admin/manage/${bookId}`, { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } });
-      setManageSuccess(`"${title}" moved to archive.`); await refreshBooks(); await refreshArchives();
+      setManageSuccess(`"${title}" moved to archive.`); await fetchData();
     } catch (err: any) { setManageError(err.response?.data?.message || "Failed to archive book."); }
   };
 
@@ -125,7 +139,7 @@ export default function ManageBooks() {
     setArchiveError(""); setArchiveSuccess("");
     try {
       await api.post(`/books/admin/restore/${archiveId}`, {}, { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } });
-      setArchiveSuccess("Book restored successfully!"); await refreshArchives(); await refreshBooks();
+      setArchiveSuccess("Book restored successfully!"); await fetchData();
     } catch (err) { setArchiveError("Failed to restore book."); }
   };
 
@@ -150,24 +164,48 @@ export default function ManageBooks() {
               <input type="text" name="isbn" required value={addForm.isbn} onChange={handleAddChange} placeholder="978-3..." style={{ width: "100%", padding: "10px", marginTop: "5px", boxSizing: "border-box", border: "1px solid #cbd5e1", borderRadius: "4px" }} />
             </div>
           </div>
+
           <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
+            {/* AUTOPLETE / COMBOBOX FOR AUTHOR */}
             <div style={{ flex: 1, minWidth: "180px" }}>
               <label style={{ fontWeight: "bold", fontSize: "14px" }}>Author *</label>
-              <select name="authorId" value={addForm.authorId} onChange={handleAddChange} style={{ width: "100%", padding: "10px", marginTop: "5px", boxSizing: "border-box", border: "1px solid #cbd5e1", borderRadius: "4px" }}>
-                <option value={1}>Jose Rizal</option><option value={2}>J.K. Rowling</option><option value={3}>George Orwell</option>
-              </select>
+              <input 
+                list="authors-list" 
+                name="authorName" 
+                required 
+                value={addForm.authorName} 
+                onChange={handleAddChange} 
+                placeholder="Type or select author..."
+                style={{ width: "100%", padding: "10px", marginTop: "5px", boxSizing: "border-box", border: "1px solid #cbd5e1", borderRadius: "4px" }} 
+              />
+              <datalist id="authors-list">
+                {authorsList.map(a => <option key={a.author_id} value={`${a.first_name} ${a.last_name}`} />)}
+              </datalist>
             </div>
+
+            {/* AUTOPLETE / COMBOBOX FOR CATEGORY */}
             <div style={{ flex: 1, minWidth: "180px" }}>
               <label style={{ fontWeight: "bold", fontSize: "14px" }}>Category *</label>
-              <select name="categoryId" value={addForm.categoryId} onChange={handleAddChange} style={{ width: "100%", padding: "10px", marginTop: "5px", boxSizing: "border-box", border: "1px solid #cbd5e1", borderRadius: "4px" }}>
-                <option value={1}>Fantasy</option><option value={2}>Fiction</option><option value={3}>Non-Fiction</option><option value={4}>Science</option><option value={5}>History</option>
-              </select>
+              <input 
+                list="categories-list" 
+                name="categoryName" 
+                required 
+                value={addForm.categoryName} 
+                onChange={handleAddChange} 
+                placeholder="Type or create new..."
+                style={{ width: "100%", padding: "10px", marginTop: "5px", boxSizing: "border-box", border: "1px solid #cbd5e1", borderRadius: "4px" }} 
+              />
+              <datalist id="categories-list">
+                {categoriesList.map(c => <option key={c.category_id} value={c.category} />)}
+              </datalist>
             </div>
+
             <div style={{ width: "160px" }}>
               <label style={{ fontWeight: "bold", fontSize: "14px" }}>Total Copies *</label>
               <input type="number" name="totalCopies" min={1} required value={addForm.totalCopies} onChange={handleAddChange} style={{ width: "100%", padding: "10px", marginTop: "5px", boxSizing: "border-box", border: "1px solid #cbd5e1", borderRadius: "4px" }} />
             </div>
           </div>
+
           <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
             <div style={{ flex: 1, minWidth: "220px" }}>
               <label style={{ fontWeight: "bold", fontSize: "14px" }}>Cover URL (Optional)</label>
@@ -276,7 +314,7 @@ export default function ManageBooks() {
 
       {/* EDIT MODAL */}
       {editingBook && (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
           <div style={{ backgroundColor: "white", padding: "30px", borderRadius: "8px", width: "400px", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
             <h3 style={{ marginTop: 0 }}>Edit Book: {editingBook.book_id}</h3>
             <form onSubmit={handleUpdate} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>

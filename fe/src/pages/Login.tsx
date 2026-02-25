@@ -83,7 +83,7 @@ export default function Login() {
       </div>
 
       <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px' }}>
-        Are you a Librarian? <Link to="/librarian-login" style={{ color: '#64748b', fontWeight: 'bold' }}>Librarian Login</Link>
+        Are you a Librarian? <Link to="/admin/login" style={{ color: '#64748b', fontWeight: 'bold' }}>Librarian Login</Link>
       </div>
       
     </div>

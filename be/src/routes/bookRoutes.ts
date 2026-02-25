@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { searchBooks, viewBookDetails, borrowBook, returnBook, addBook, getActiveLoansByMember, getAllActiveLoans, getUnpaidFines, settleFine, runDiagnostics, repairDatabases, deleteBookRecord, updateBookDetails, getArchivedBooks, restoreBookFromVault, getAllAuthors, updateAuthorRecord, deleteAuthorRecord, getArchivedAuthors, restoreAuthor, getAuditTrails } from '../controllers/bookController';
+import { searchBooks, viewBookDetails, borrowBook, returnBook, addBook, getActiveLoansByMember, getAllActiveLoans, getUnpaidFines, settleFine, runDiagnostics, repairDatabases, deleteBookRecord, updateBookDetails, getArchivedBooks, restoreBookFromVault, getAllAuthors, updateAuthorRecord, deleteAuthorRecord, getArchivedAuthors, restoreAuthor, getAuditTrails, addAuthor, getAllCategories } from '../controllers/bookController';
 import { verifyToken } from '../middleware/auth';
 import { validateData, createBookSchema } from '../middleware/validators';
 
@@ -7,7 +7,6 @@ const router = Router();
 
 router.get('/search', searchBooks);
 router.post('/add', validateData(createBookSchema), addBook);
-router.get('/:bookId', viewBookDetails);
 router.post('/borrow', verifyToken, borrowBook);
 router.post('/return/:loanId', verifyToken, returnBook);
 router.get('/loans/member/:memberId', getActiveLoansByMember);
@@ -26,8 +25,13 @@ router.delete('/admin/authors/:authorId', verifyToken, deleteAuthorRecord);
 router.get('/admin/archive/authors', verifyToken, getArchivedAuthors);
 router.post('/admin/restore/authors/:archiveId', verifyToken, restoreAuthor);
 router.post('/add', verifyToken, validateData(createBookSchema), addBook);
+router.post('/admin/authors/add', verifyToken, addAuthor);
+router.get('/categories', getAllCategories);
 
 // NEW: Audit Log Route
 router.get('/admin/audit-logs', verifyToken, getAuditTrails);
+
+router.get('/:bookId', viewBookDetails);
+
 
 export default router;

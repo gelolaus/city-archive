@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import mysqlPool from '../config/db-mysql';
-import { MemberProfile, TelemetryLog, BookContent, BookAnalytics } from '../models';
+// FIX: Added AuditLog to the imports here!
+import { MemberProfile, TelemetryLog, BookContent, BookAnalytics, AuditLog } from '../models';
 
 export const registerMember = async (req: Request, res: Response): Promise<void> => {
     const { firstName, lastName, email, phone, password } = req.body;
@@ -136,7 +137,6 @@ export const loginLibrarian = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        // FIX: username is now safely inside the try block where 'librarian' exists
         const token = jwt.sign(
             { id: librarian.librarian_id, username: librarian.username, role: 'librarian' },
             process.env.JWT_SECRET || 'fallback_secret',
@@ -199,6 +199,14 @@ export const getAdminStats = async (req: Request, res: Response): Promise<void> 
     try {
         const [loansResult]: any = await mysqlPool.execute('SELECT COUNT(*) AS count FROM loans WHERE return_date IS NULL');
         const [finesResult]: any = await mysqlPool.execute('SELECT COALESCE(SUM(amount), 0) AS total FROM fines WHERE is_paid = FALSE');
+
+        const [categoryResult]: any = await mysqlPool.execute(`
+            SELECT c.category as name, COUNT(b.book_id) as value
+            FROM books b
+            JOIN categories c ON b.category_id = c.category_id
+            GROUP BY c.category_id, c.category
+            ORDER BY value DESC
+        `);
 
         const inventoryResult = await BookContent.aggregate([{ $group: { _id: null, totalCopies: { $sum: "$inventory.total_copies" } } }]);
         const analyticsResult = await BookAnalytics.aggregate([{ $group: { _id: null, totalViews: { $sum: "$total_views" } } }]);
@@ -268,7 +276,11 @@ export const getAdminStats = async (req: Request, res: Response): Promise<void> 
                 unpaidFines: parseFloat(finesResult[0].total),
                 totalBooks: inventoryResult.length > 0 ? inventoryResult[0].totalCopies : 0,
                 systemViews: analyticsResult.length > 0 ? analyticsResult[0].totalViews : 0,
-                topSearches: topSearches.map(s => ({ query: s._id, count: s.count })),
+                categoryDistribution: categoryResult,
+                topSearches: topSearches.map(s => ({ 
+                    query: s._id.split('|')[0].replace('keyword:', '') || "Empty Search",
+                    count: s.count 
+                })),
                 topViewed: mapTitles(topViewedMongo),
                 topBorrowed: mapTitles(topBorrowedMongo),
                 lowConversion: mapTitles(lowConversionMongo)
@@ -310,6 +322,7 @@ export const updateMemberDetails = async (req: Request, res: Response): Promise<
     }
 };
 
+// FIX: Only ONE toggleMemberStatus function, with safe audit logging
 export const toggleMemberStatus = async (req: Request, res: Response): Promise<void> => {
     const { memberId } = req.params;
     const { status } = req.body; 
@@ -320,6 +333,21 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
             [status ? 1 : 0, memberId]
         );
         const message = status ? 'Member account reactivated.' : 'Member account suspended.';
+
+        try {
+            const user = (req as any).user || { id: 999, username: 'System_Admin' };
+            await AuditLog.create({
+                librarian_id: user.id || 999,
+                username: user.username || 'System_Admin',
+                action: status ? 'MEMBER_RESTORE' : 'MEMBER_ARCHIVE',
+                entity_type: 'MEMBER',
+                entity_id: String(memberId),
+                details: message
+            });
+        } catch (auditErr) {
+            console.error("Non-fatal Audit Error:", auditErr);
+        }
+
         res.status(200).json({ status: 'success', message });
     } catch (error: any) {
         console.error('Status Toggle Error:', error.message);

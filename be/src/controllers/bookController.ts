@@ -4,7 +4,7 @@ import mysqlPool from '../config/db-mysql';
 import { BookContent, TelemetryLog, BookAnalytics, TransactionLedger, MemberProfile, AuditLog } from '../models';
 
 // ==========================================
-// BULLETPROOF AUDIT HELPER (TypeScript Fix Applied)
+// BULLETPROOF AUDIT HELPER
 // ==========================================
 const safeAuditLog = async (req: Request, action: string, entity_type: string, entity_id: any, details: string) => {
     try {
@@ -14,14 +14,13 @@ const safeAuditLog = async (req: Request, action: string, entity_type: string, e
             username: user.username || 'System_Admin',
             action,
             entity_type,
-            entity_id: String(entity_id), // Forces any input into a safe string
+            entity_id: String(entity_id),
             details
         });
     } catch (error: any) {
         console.error(`[NON-FATAL AUDIT ERROR] Failed to log ${action}:`, error.message);
     }
 };
-// ==========================================
 
 export const searchBooks = async (req: Request, res: Response): Promise<void> => {
     const keyword = (req.query.keyword as string) || '';
@@ -110,14 +109,33 @@ export const viewBookDetails = async (req: Request, res: Response): Promise<void
 };
 
 export const addBook = async (req: Request, res: Response): Promise<void> => {
-    const { title, isbn, authorId, categoryId, synopsis, coverImage, totalCopies } = req.body;
+    const { title, isbn, authorId, categoryId, newCategoryName, synopsis, coverImage, totalCopies } = req.body;
     const sessionId = (req.headers['x-session-id'] as string) || 'admin-session';
     const newMongoId = new mongoose.Types.ObjectId();
 
     try {
+        let finalCategoryId = categoryId;
+
+        if (newCategoryName && !categoryId) {
+            const [existingCat]: any = await mysqlPool.execute(
+                'SELECT category_id FROM categories WHERE LOWER(category) = LOWER(?)', 
+                [newCategoryName]
+            );
+            
+            if (existingCat.length > 0) {
+                finalCategoryId = existingCat[0].category_id;
+            } else {
+                const [catResult]: any = await mysqlPool.execute(
+                    'INSERT INTO categories (category) VALUES (?)', 
+                    [newCategoryName]
+                );
+                finalCategoryId = catResult.insertId;
+            }
+        }
+
         const [mysqlResult]: any = await mysqlPool.execute(
             'CALL create_book(?, ?, ?, ?, ?)',
-            [newMongoId.toString(), authorId, categoryId, title, isbn]
+            [newMongoId.toString(), authorId, finalCategoryId, title, isbn]
         );
         const mysqlBookId = mysqlResult[0][0].new_book_id;
 
@@ -136,6 +154,7 @@ export const addBook = async (req: Request, res: Response): Promise<void> => {
             ip_address: req.ip || 'unknown'
         });
 
+        // AUDIT LOG RESTORED HERE
         await safeAuditLog(req, 'BOOK_ADD', 'BOOK', mysqlBookId, `Added new book: "${title}" (ISBN: ${isbn})`);
 
         res.status(201).json({ status: 'success', message: 'Book added!', bookId: mysqlBookId });
@@ -181,6 +200,7 @@ export const borrowBook = async (req: Request, res: Response): Promise<void> => 
             book_mongo_id: mongoBook._id as any
         });
 
+        // AUDIT LOG RESTORED HERE
         await safeAuditLog(req, 'BORROW_INITIATED', 'LOAN', `M${memberId}-B${bookId}`, `Issued loan for Book #${bookId} to Member #${memberId}`);
 
         res.status(201).json({ status: 'success', message: 'Book borrowed successfully.' });
@@ -234,6 +254,7 @@ export const returnBook = async (req: Request, res: Response): Promise<void> => 
                 { avg_return_time_days: avgTime }
             );
 
+            // AUDIT LOG RESTORED HERE
             await safeAuditLog(req, 'BOOK_RETURNED', 'LOAN', loanId, `Processed return for Loan #${loanId}. Kept for ${loanData.days_kept} days.`);
         }
 
@@ -249,7 +270,6 @@ export const getActiveLoansByMember = async (req: Request, res: Response): Promi
         const [rows]: any = await mysqlPool.execute('CALL get_member_current_loans(?)', [memberId]);
         res.status(200).json({ status: 'success', data: rows[0] });
     } catch (error: any) {
-        console.error('Fetch Loans Error:', error.message);
         res.status(500).json({ status: 'error', message: 'Failed to fetch active loans.' });
     }
 };
@@ -263,7 +283,6 @@ export const getAllActiveLoans = async (req: Request, res: Response): Promise<vo
         );
         res.status(200).json({ status: 'success', data: rows });
     } catch (error: any) {
-        console.error('Fetch All Active Loans Error:', error.message);
         res.status(500).json({ status: 'error', message: 'Failed to fetch active loans.' });
     }
 };
@@ -274,11 +293,9 @@ export const getUnpaidFines = async (req: Request, res: Response): Promise<void>
             SELECT f.fine_id, f.amount, DATE_FORMAT(f.created_at, '%Y-%m-%d') as issued_date,
                    l.loan_id, b.title, CONCAT(m.first_name, ' ', m.last_name) AS member_name, m.member_id
             FROM fines f JOIN loans l ON f.loan_id = l.loan_id JOIN books b ON l.book_id = b.book_id JOIN members m ON l.member_id = m.member_id
-            WHERE f.is_paid = FALSE ORDER BY f.created_at DESC
-        `);
+            WHERE f.is_paid = FALSE ORDER BY f.created_at DESC`);
         res.status(200).json({ status: 'success', data: rows });
     } catch (error: any) {
-        console.error('Fetch Fines Error:', error.message);
         res.status(500).json({ status: 'error', message: 'Failed to fetch unpaid fines.' });
     }
 };
@@ -289,12 +306,9 @@ export const settleFine = async (req: Request, res: Response): Promise<void> => 
     try {
         const [fineDataRows]: any = await mysqlPool.execute(`
             SELECT f.fine_id, f.amount, l.member_id, l.book_id
-            FROM fines f JOIN loans l ON f.loan_id = l.loan_id WHERE f.fine_id = ?
-        `, [fineId]);
+            FROM fines f JOIN loans l ON f.loan_id = l.loan_id WHERE f.fine_id = ?`, [fineId]);
 
-        if (fineDataRows.length === 0) {
-            res.status(404).json({ status: 'error', message: 'Fine not found.' }); return;
-        }
+        if (fineDataRows.length === 0) { res.status(404).json({ status: 'error', message: 'Fine not found.' }); return; }
         const fineData = fineDataRows[0];
 
         await mysqlPool.execute('CALL process_fine_payment(?)', [fineId]);
@@ -302,9 +316,7 @@ export const settleFine = async (req: Request, res: Response): Promise<void> => 
         const mongoBook = await BookContent.findOne({ mysql_book_id: fineData.book_id });
         let memberProfile = await MemberProfile.findOne({ mysql_member_id: fineData.member_id });
         
-        if (!memberProfile) {
-            memberProfile = await MemberProfile.create({ mysql_member_id: fineData.member_id });
-        }
+        if (!memberProfile) { memberProfile = await MemberProfile.create({ mysql_member_id: fineData.member_id }); }
 
         if (mongoBook) {
             await TransactionLedger.create({
@@ -314,10 +326,11 @@ export const settleFine = async (req: Request, res: Response): Promise<void> => 
                 book_mongo_id: mongoBook._id as any
             });
 
+            // AUDIT LOG RESTORED HERE
             await safeAuditLog(req, 'FINE_SETTLED', 'FINE', fineId, `Settled fine of ₱${fineData.amount} for Member #${fineData.member_id}.`);
         }
 
-        res.status(200).json({ status: 'success', message: 'Fine settled and recorded in ledger.' });
+        res.status(200).json({ status: 'success', message: 'Fine settled.' });
     } catch (error: any) {
         res.status(500).json({ status: 'error', message: error.message });
     }
@@ -326,7 +339,7 @@ export const settleFine = async (req: Request, res: Response): Promise<void> => 
 export const runDiagnostics = async (req: Request, res: Response): Promise<void> => {
     try {
         const [mysqlBooks]: any = await mysqlPool.execute('SELECT book_id, title FROM books');
-        const mysqlIds = mysqlBooks.map((b: any) => b.book_id);
+        const mysqlIds = mysqlBooks.map((b: any) => b.book_id); 
 
         const mongoBooks = await BookContent.find({}, 'mysql_book_id');
         const mongoIds = mongoBooks.map(b => b.mysql_book_id);
@@ -334,24 +347,20 @@ export const runDiagnostics = async (req: Request, res: Response): Promise<void>
         const mysqlOrphans = mysqlBooks.filter((b: any) => !mongoIds.includes(b.book_id));
         const mongoOrphans = mongoBooks.filter(b => !mysqlIds.includes(b.mysql_book_id));
 
-        res.status(200).json({
-            status: 'success',
-            data: {
-                mysqlOrphans,
-                mongoOrphans,
-                isHealthy: mysqlOrphans.length === 0 && mongoOrphans.length === 0
-            }
+        res.status(200).json({ 
+            status: 'success', 
+            data: { mysqlOrphans, mongoOrphans, isHealthy: mysqlOrphans.length === 0 && mongoOrphans.length === 0 } 
         });
     } catch (error: any) {
-        console.error('Diagnostics Error:', error.message);
-        res.status(500).json({ status: 'error', message: 'Failed to run system diagnostics.' });
+        res.status(500).json({ status: 'error', message: 'Failed diagnostics.' });
     }
 };
 
 export const repairDatabases = async (req: Request, res: Response): Promise<void> => {
     try {
         const [mysqlBooks]: any = await mysqlPool.execute('SELECT book_id, title FROM books');
-        const mysqlIds = mysqlBooks.map((b: any) => b.book_id);
+        const mysqlIds = mysqlBooks.map((b: any) => b.book_id); 
+
         const mongoBooks = await BookContent.find({}, 'mysql_book_id');
         const mongoIds = mongoBooks.map(b => b.mysql_book_id);
 
@@ -359,22 +368,18 @@ export const repairDatabases = async (req: Request, res: Response): Promise<void
         const mongoOrphans = mongoBooks.filter(b => !mysqlIds.includes(b.mysql_book_id));
 
         for (const orphan of mysqlOrphans) {
-            await BookContent.create({
-                mysql_book_id: orphan.book_id,
-                synopsis: 'SYSTEM RECOVERY: Auto-generated document. Please update synopsis.',
-                cover_image_url: 'https://via.placeholder.com/300x450?text=Recovered+Data',
-                inventory: { total_copies: 1, available_copies: 1 }
+            await BookContent.create({ 
+                mysql_book_id: orphan.book_id, 
+                synopsis: 'SYSTEM RECOVERY: Auto-generated.', 
+                inventory: { total_copies: 1, available_copies: 1 } 
             });
         }
-
         for (const orphan of mongoOrphans) {
             await BookContent.deleteOne({ _id: orphan._id });
-            await BookAnalytics.deleteOne({ book_mongo_id: orphan._id });
         }
-
-        res.status(200).json({ status: 'success', message: 'Databases successfully synchronized.' });
+        res.status(200).json({ status: 'success', message: 'Synchronized.' });
     } catch (error: any) {
-        res.status(500).json({ status: 'error', message: 'Failed to execute auto-repair.' });
+        res.status(500).json({ status: 'error', message: 'Failed repair.' });
     }
 };
 
@@ -383,17 +388,47 @@ export const updateBookDetails = async (req: Request, res: Response): Promise<vo
     const { title, isbn, authorId, categoryId, synopsis, coverImage, totalCopies } = req.body;
 
     try {
-        await mysqlPool.execute('CALL update_book(?, ?, ?, ?, ?)', [bookId, authorId, categoryId, title, isbn]);
-
-        await BookContent.findOneAndUpdate(
-            { mysql_book_id: bookId },
-            { 
-                synopsis: synopsis,
-                cover_image_url: coverImage,
-                'inventory.total_copies': totalCopies
-            }
+        // Ensure we never pass undefined into MySQL bind parameters.
+        // If authorId or categoryId are not provided by the caller (e.g. current admin UI),
+        // fall back to the existing values from the books table.
+        const [existingRows]: any = await mysqlPool.execute(
+            'SELECT author_id, category_id FROM books WHERE book_id = ? LIMIT 1',
+            [bookId]
         );
 
+        if (!existingRows || existingRows.length === 0) {
+            res.status(404).json({ status: 'error', message: 'Book not found.' });
+            return;
+        }
+
+        const finalAuthorId = authorId ?? existingRows[0].author_id;
+        const finalCategoryId = categoryId ?? existingRows[0].category_id;
+
+        await mysqlPool.execute('CALL update_book(?, ?, ?, ?, ?)', [
+            bookId,
+            finalAuthorId,
+            finalCategoryId,
+            title,
+            isbn
+        ]);
+
+        const oldBook = await BookContent.findOne({ mysql_book_id: bookId });
+        if (oldBook) {
+            const diff = totalCopies - oldBook.inventory.total_copies;
+            const newAvailable = Math.max(0, oldBook.inventory.available_copies + diff);
+
+            await BookContent.findOneAndUpdate(
+                { mysql_book_id: bookId },
+                { 
+                    synopsis: synopsis,
+                    cover_image_url: coverImage,
+                    'inventory.total_copies': totalCopies,
+                    'inventory.available_copies': newAvailable 
+                }
+            );
+        }
+
+        // AUDIT LOG RESTORED HERE
         await safeAuditLog(req, 'BOOK_UPDATE', 'BOOK', bookId, `Updated details for book #${bookId}: "${title}"`);
 
         res.status(200).json({ status: 'success', message: 'Book updated successfully.' });
@@ -413,44 +448,23 @@ export const deleteBookRecord = async (req: Request, res: Response): Promise<voi
         const [bookRows]: any = await mysqlPool.execute('SELECT title FROM books WHERE book_id = ?', [book_id]);
         const bookTitle = bookRows[0]?.title || `ID #${book_id}`;
 
-        const [activeLoans]: any = await mysqlPool.execute(
-            'SELECT loan_id FROM loans WHERE book_id = ? AND return_date IS NULL',
-            [book_id]
-        );
-
+        const [activeLoans]: any = await mysqlPool.execute('SELECT loan_id FROM loans WHERE book_id = ? AND return_date IS NULL', [book_id]);
         if (activeLoans.length > 0) {
-            res.status(400).json({ 
-                status: 'error', 
-                message: 'Cannot archive: This book is currently borrowed by a member. Process the return first.' 
-            });
-            return;
+            res.status(400).json({ status: 'error', message: 'Cannot archive: Active loans exist.' }); return;
         }
 
-        const [unpaidFines]: any = await mysqlPool.execute(
-            'SELECT f.fine_id FROM fines f JOIN loans l ON f.loan_id = l.loan_id WHERE l.book_id = ? AND f.is_paid = FALSE',
-            [book_id]
-        );
-
+        const [unpaidFines]: any = await mysqlPool.execute('SELECT f.fine_id FROM fines f JOIN loans l ON f.loan_id = l.loan_id WHERE l.book_id = ? AND f.is_paid = FALSE', [book_id]);
         if (unpaidFines.length > 0) {
-            res.status(400).json({ 
-                status: 'error', 
-                message: 'Cannot archive: There are outstanding unpaid fines tied to this book.' 
-            });
-            return;
+            res.status(400).json({ status: 'error', message: 'Cannot archive: Unpaid fines exist.' }); return;
         }
 
         await mysqlPool.execute('CALL delete_book(?)', [book_id]);
 
-        const mongoBook = await BookContent.findOneAndDelete({ mysql_book_id: book_id });
-        if (mongoBook) {
-            await BookAnalytics.deleteOne({ book_mongo_id: mongoBook._id });
-        }
-
+        // AUDIT LOG RESTORED HERE
         await safeAuditLog(req, 'BOOK_ARCHIVE', 'BOOK', book_id, `Moved "${bookTitle}" to the 30-day archive vault.`);
 
-        res.status(200).json({ status: 'success', message: 'Book securely moved to 30-day archive.' });
+        res.status(200).json({ status: 'success', message: 'Book securely moved to archive.' });
     } catch (error: any) {
-        console.error('Archive Logic Error:', error.message);
         res.status(500).json({ status: 'error', message: 'Database error: ' + error.message });
     }
 };
@@ -458,17 +472,12 @@ export const deleteBookRecord = async (req: Request, res: Response): Promise<voi
 export const getArchivedBooks = async (req: Request, res: Response): Promise<void> => {
     try {
         const [rows]: any = await mysqlPool.execute(
-            `SELECT archive_id, original_id, record_payload, 
-                    DATE_FORMAT(archived_at, '%Y-%m-%d %H:%i') as archived_date,
-                    DATE_FORMAT(DATE_ADD(archived_at, INTERVAL 30 DAY), '%Y-%m-%d') as deletion_date
-             FROM books_archive 
-             ORDER BY archived_at DESC`
+            `SELECT archive_id, original_id, record_payload, DATE_FORMAT(archived_at, '%Y-%m-%d %H:%i') as archived_date, DATE_FORMAT(DATE_ADD(archived_at, INTERVAL 30 DAY), '%Y-%m-%d') as deletion_date
+             FROM books_archive ORDER BY archived_at DESC`
         );
-        
         res.status(200).json({ status: 'success', data: rows });
     } catch (error: any) {
-        console.error('Fetch Archive Error:', error.message);
-        res.status(500).json({ status: 'error', message: 'Failed to access the archive vault.' });
+        res.status(500).json({ status: 'error', message: 'Failed to access archive.' });
     }
 };
 
@@ -477,50 +486,59 @@ export const restoreBookFromVault = async (req: Request, res: Response): Promise
 
     try {
         const [arcRows]: any = await mysqlPool.execute('SELECT original_id, record_payload FROM books_archive WHERE archive_id = ?', [archiveId]);
-        
-        if (arcRows.length === 0) {
-            res.status(404).json({ status: 'error', message: 'Archive record not found.' });
-            return;
-        }
+        if (arcRows.length === 0) { res.status(404).json({ status: 'error', message: 'Record not found.' }); return; }
 
         const payload = arcRows[0].record_payload;
         const originalId = arcRows[0].original_id;
 
         await mysqlPool.execute('CALL restore_book(?)', [archiveId]);
 
-        await BookContent.create({
-            mysql_book_id: originalId,
-            synopsis: payload.synopsis || 'Recovered from archive.',
-            cover_image_url: payload.cover_image_url || 'https://via.placeholder.com/300x450?text=Restored',
-            inventory: { total_copies: 1, available_copies: 1 }
-        });
-
+        // AUDIT LOG RESTORED HERE
         await safeAuditLog(req, 'BOOK_RESTORE', 'BOOK', originalId, `Restored book: "${payload.title}" from the vault.`);
 
-        res.status(200).json({ status: 'success', message: 'Book successfully restored to the active catalog.' });
+        res.status(200).json({ status: 'success', message: 'Restored successfully.' });
     } catch (error: any) {
-        console.error('Restore Error:', error.message);
-        res.status(500).json({ status: 'error', message: 'Failed to restore book.' });
+        res.status(500).json({ status: 'error', message: error.message });
     }
 };
 
 export const getAllAuthors = async (req: Request, res: Response): Promise<void> => {
     try {
-        const [rows]: any = await mysqlPool.execute(
-            'SELECT author_id, first_name, last_name, created_at FROM authors ORDER BY last_name ASC'
-        );
+        const [rows]: any = await mysqlPool.execute('SELECT author_id, first_name, last_name, created_at FROM authors ORDER BY last_name ASC');
         res.status(200).json({ status: 'success', data: rows });
     } catch (error: any) {
-        res.status(500).json({ status: 'error', message: 'Failed to fetch authors.' });
+        res.status(500).json({ status: 'error', message: 'Failed authors.' });
     }
 };
 
 export const updateAuthorRecord = async (req: Request, res: Response): Promise<void> => {
     const { authorId } = req.params;
     const { first_name, last_name } = req.body;
+
     try {
+        // Prevent duplicate or visually identical author identities
+        const [existing]: any = await mysqlPool.execute(
+            `SELECT author_id FROM authors 
+             WHERE LOWER(TRIM(first_name)) = LOWER(TRIM(?)) 
+               AND LOWER(TRIM(last_name)) = LOWER(TRIM(?)) 
+               AND author_id <> ?
+             LIMIT 1`,
+            [first_name, last_name, authorId]
+        );
+
+        if (existing.length > 0) {
+            res.status(400).json({
+                status: 'error',
+                message: 'Another author with this exact name already exists. Use that record instead of creating a duplicate.'
+            });
+            return;
+        }
+
         await mysqlPool.execute('CALL update_author(?, ?, ?)', [authorId, first_name, last_name]);
+
+        // AUDIT LOG RESTORED HERE
         await safeAuditLog(req, 'AUTHOR_UPDATE', 'AUTHOR', authorId, `Updated author identity to: ${first_name} ${last_name}`);
+
         res.status(200).json({ status: 'success', message: 'Author updated successfully.' });
     } catch (error: any) {
         res.status(500).json({ status: 'error', message: error.message });
@@ -529,45 +547,36 @@ export const updateAuthorRecord = async (req: Request, res: Response): Promise<v
 
 export const deleteAuthorRecord = async (req: Request, res: Response): Promise<void> => {
     const { authorId } = req.params;
+
     try {
         const [authorRows]: any = await mysqlPool.execute('SELECT first_name, last_name FROM authors WHERE author_id = ?', [authorId]);
         const authorName = authorRows[0] ? `${authorRows[0].first_name} ${authorRows[0].last_name}` : `ID #${authorId}`;
 
         await mysqlPool.execute('DELETE FROM authors WHERE author_id = ?', [authorId]);
+
+        // AUDIT LOG RESTORED HERE
         await safeAuditLog(req, 'AUTHOR_ARCHIVE', 'AUTHOR', authorId, `Moved author "${authorName}" to the archive vault.`);
 
-        res.status(200).json({ status: 'success', message: 'Author moved to 30-day archive.' });
+        res.status(200).json({ status: 'success', message: 'Author moved to archive.' });
     } catch (error: any) {
-        if (error.message.includes('foreign key constraint')) {
-            res.status(400).json({ 
-                status: 'error', 
-                message: 'Cannot archive: This author still has books in the catalog. Reassign or delete the books first.' 
-            });
-        } else {
-            res.status(500).json({ status: 'error', message: 'Failed to archive author.' });
-        }
+        res.status(400).json({ status: 'error', message: 'Cannot archive author: active dependencies exist.' });
     }
 };
 
 export const getArchivedAuthors = async (req: Request, res: Response): Promise<void> => {
     try {
         const [rows]: any = await mysqlPool.execute(
-            `SELECT archive_id, original_id, record_payload, 
-                    DATE_FORMAT(archived_at, '%Y-%m-%d %H:%i') as archived_date,
-                    DATE_FORMAT(DATE_ADD(archived_at, INTERVAL 30 DAY), '%Y-%m-%d') as deletion_date
-             FROM authors_archive 
-             ORDER BY archived_at DESC`
+            `SELECT archive_id, original_id, record_payload, DATE_FORMAT(archived_at, '%Y-%m-%d %H:%i') as archived_date, DATE_FORMAT(DATE_ADD(archived_at, INTERVAL 30 DAY), '%Y-%m-%d') as deletion_date FROM authors_archive ORDER BY archived_at DESC`
         );
-        
         res.status(200).json({ status: 'success', data: rows });
     } catch (error: any) {
-        console.error('Fetch Author Archive Error:', error.message);
-        res.status(500).json({ status: 'error', message: 'Failed to access the Author Vault.' });
+        res.status(500).json({ status: 'error', message: 'Archive access failed.' });
     }
 };
 
 export const restoreAuthor = async (req: Request, res: Response): Promise<void> => {
     const archiveId = Number(req.params.archiveId);
+
     try {
         const [arcRows]: any = await mysqlPool.execute('SELECT original_id, record_payload FROM authors_archive WHERE archive_id = ?', [archiveId]);
         if (arcRows.length === 0) { res.status(404).json({ status: 'error', message: 'Not found.' }); return; }
@@ -576,12 +585,56 @@ export const restoreAuthor = async (req: Request, res: Response): Promise<void> 
         const originalId = arcRows[0].original_id;
 
         await mysqlPool.execute('CALL restore_author(?)', [archiveId]);
+
+        // AUDIT LOG RESTORED HERE
         await safeAuditLog(req, 'AUTHOR_RESTORE', 'AUTHOR', originalId, `Restored author "${payload.first_name} ${payload.last_name}" from archive.`);
 
-        res.status(200).json({ status: 'success', message: 'Author successfully restored.' });
+        res.status(200).json({ status: 'success', message: 'Author restored.' });
     } catch (error: any) {
-        console.error('Author Restore Error:', error.message);
-        res.status(500).json({ status: 'error', message: 'Failed to restore author.' });
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+export const getAllCategories = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const [rows]: any = await mysqlPool.execute('SELECT category_id, category FROM categories ORDER BY category ASC');
+        res.status(200).json({ status: 'success', data: rows });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: 'Failed to fetch categories.' });
+    }
+};
+
+export const addAuthor = async (req: Request, res: Response): Promise<void> => {
+    const { first_name, last_name } = req.body;
+    try {
+        // Enforce uniqueness on full author name (case-insensitive, trimmed)
+        const [existing]: any = await mysqlPool.execute(
+            `SELECT author_id FROM authors 
+             WHERE LOWER(TRIM(first_name)) = LOWER(TRIM(?)) 
+               AND LOWER(TRIM(last_name)) = LOWER(TRIM(?))
+             LIMIT 1`,
+            [first_name, last_name]
+        );
+
+        if (existing.length > 0) {
+            res.status(400).json({
+                status: 'error',
+                message: 'Author already exists in the directory. Search for their name instead of adding a duplicate.'
+            });
+            return;
+        }
+
+        const [result]: any = await mysqlPool.execute(
+            'INSERT INTO authors (first_name, last_name) VALUES (?, ?)', 
+            [first_name, last_name]
+        );
+        
+        // AUDIT LOG RESTORED HERE
+        await safeAuditLog(req, 'AUTHOR_ADD', 'AUTHOR', result.insertId, `Added new author: ${first_name} ${last_name}`);
+        
+        res.status(201).json({ status: 'success', message: 'Author successfully added.' });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: 'Failed to add author to database.' });
     }
 };
 
