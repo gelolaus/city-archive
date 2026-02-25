@@ -87,7 +87,6 @@ const bookAnalyticsSchema = new Schema<IBookAnalytics>({
     total_returns: { type: Number, default: 0 }
 });
 
-// Modernized async hook: keeps conversion rate and average return time in sync
 bookAnalyticsSchema.pre('save', async function (this: IBookAnalytics) {
     if (this.total_views > 0) {
         this.conversion_rate = parseFloat((this.total_borrows / this.total_views).toFixed(4));
@@ -152,6 +151,29 @@ const memberProfileSchema = new Schema<IMemberProfile>({
 }, { timestamps: true });
 
 // ==========================================
+// 6. Audit Logs
+// ==========================================
+export interface IAuditLog extends Document {
+    librarian_id: number;
+    username: string;
+    action: string;
+    entity_type: string;
+    entity_id: string;
+    details?: string;
+    timestamp: Date;
+}
+
+const auditLogSchema = new Schema<IAuditLog>({
+    librarian_id: { type: Number, required: true, index: true },
+    username: { type: String, required: true },
+    action: { type: String, required: true },
+    entity_type: { type: String, required: true },
+    entity_id: { type: String, required: true },
+    details: { type: String },
+    timestamp: { type: Date, default: Date.now, index: true }
+});
+
+// ==========================================
 // Model Exports
 // ==========================================
 export const TelemetryLog = mongoose.model<ITelemetryLog>('TelemetryLog', telemetrySchema);
@@ -159,3 +181,4 @@ export const TransactionLedger = mongoose.model<ITransactionLedger>('Transaction
 export const BookAnalytics = mongoose.model<IBookAnalytics>('BookAnalytics', bookAnalyticsSchema);
 export const BookContent = mongoose.model<IBookContent>('BookContent', bookContentSchema);
 export const MemberProfile = mongoose.model<IMemberProfile>('MemberProfile', memberProfileSchema);
+export const AuditLog = mongoose.model<IAuditLog>('AuditLog', auditLogSchema);

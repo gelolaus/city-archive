@@ -14,24 +14,22 @@ import ManageAuthors from './pages/ManageAuthors';
 import ManageMembers from './pages/ManageMembers';
 import LoansDashboard from './pages/LoansDashboard';
 import AdminLayout from './components/AdminLayout';
+import AuditTrails from './pages/AuditTrails'; // Make sure this is imported!
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/admin/login" element={<LibrarianLogin />} />
         <Route path="/register" element={<Register />} />
         <Route path="/catalog" element={<Catalog />} />
         <Route path="/book/:id" element={<BookDetails />} />
 
-        {/* Protected Member Pages */}
         <Route element={<ProtectedRoute role="member" />}>
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>
 
-        {/* Protected Admin Pages */}
         <Route element={<ProtectedRoute role="librarian" />}>
           <Route element={<AdminLayout />}>
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
@@ -41,6 +39,9 @@ function App() {
             <Route path="/admin/books" element={<ManageBooks />} />
             <Route path="/admin/authors" element={<ManageAuthors />} />
             <Route path="/admin/members" element={<ManageMembers />} />
+            
+            {/* NEW: Audit Trail Route */}
+            <Route path="/admin/audit-logs" element={<AuditTrails />} />
           </Route>
         </Route>
 

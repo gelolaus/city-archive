@@ -1,7 +1,27 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import mysqlPool from '../config/db-mysql';
-import { BookContent, TelemetryLog, BookAnalytics, TransactionLedger, MemberProfile } from '../models';
+import { BookContent, TelemetryLog, BookAnalytics, TransactionLedger, MemberProfile, AuditLog } from '../models';
+
+// ==========================================
+// BULLETPROOF AUDIT HELPER (TypeScript Fix Applied)
+// ==========================================
+const safeAuditLog = async (req: Request, action: string, entity_type: string, entity_id: any, details: string) => {
+    try {
+        const user = (req as any).user || { id: 999, username: 'System_Admin' };
+        await AuditLog.create({
+            librarian_id: user.id || 999,
+            username: user.username || 'System_Admin',
+            action,
+            entity_type,
+            entity_id: String(entity_id), // Forces any input into a safe string
+            details
+        });
+    } catch (error: any) {
+        console.error(`[NON-FATAL AUDIT ERROR] Failed to log ${action}:`, error.message);
+    }
+};
+// ==========================================
 
 export const searchBooks = async (req: Request, res: Response): Promise<void> => {
     const keyword = (req.query.keyword as string) || '';
@@ -10,7 +30,6 @@ export const searchBooks = async (req: Request, res: Response): Promise<void> =>
     const sessionId = (req.headers['x-session-id'] as string) || 'anon';
 
     try {
-        // FIX #3: Log ONLY the pure, clean keyword so the Dashboard groups it perfectly
         await TelemetryLog.create({
             session_id: sessionId,
             event_type: 'SEARCH_EXECUTED',
@@ -28,8 +47,6 @@ export const searchBooks = async (req: Request, res: Response): Promise<void> =>
                     available: mongoData ? mongoData.inventory.available_copies > 0 : book.available,
                     synopsis: mongoData?.synopsis || 'No synopsis available.',
                     cover_image: mongoData?.cover_image_url || 'https://via.placeholder.com/300x450?text=No+Cover',
-                    
-                    // FIX: Extract the total_copies from MongoDB so the Admin table can use it!
                     total_copies: mongoData ? mongoData.inventory.total_copies : 1
                 };
             })
@@ -67,7 +84,7 @@ export const viewBookDetails = async (req: Request, res: Response): Promise<void
             TelemetryLog.create({
                 session_id: sessionId,
                 event_type: 'PAGE_VIEW',
-                target_book_id: mongoBook._id,
+                target_book_id: mongoBook._id as any,
                 ip_address: req.ip || 'unknown'
             }).catch(err => console.error(err));
 
@@ -80,7 +97,6 @@ export const viewBookDetails = async (req: Request, res: Response): Promise<void
 
         const enrichedBook = {
             ...mysqlBook,
-            // FIX: Override MySQL here too just in case!
             available: mongoBook ? mongoBook.inventory.available_copies > 0 : mysqlBook.available,
             synopsis: mongoBook?.synopsis || 'No synopsis available.',
             cover_image: mongoBook?.cover_image_url || 'https://via.placeholder.com/300x450?text=No+Cover',
@@ -120,6 +136,8 @@ export const addBook = async (req: Request, res: Response): Promise<void> => {
             ip_address: req.ip || 'unknown'
         });
 
+        await safeAuditLog(req, 'BOOK_ADD', 'BOOK', mysqlBookId, `Added new book: "${title}" (ISBN: ${isbn})`);
+
         res.status(201).json({ status: 'success', message: 'Book added!', bookId: mysqlBookId });
     } catch (error: any) {
         if (error.message.includes('Duplicate entry')) {
@@ -152,7 +170,6 @@ export const borrowBook = async (req: Request, res: Response): Promise<void> => 
             { upsert: true }
         );
 
-        // FIX #4: Ensure MemberProfile exists, then insert into the Transaction Ledger!
         let memberProfile = await MemberProfile.findOne({ mysql_member_id: Number(memberId) });
         if (!memberProfile) {
             memberProfile = await MemberProfile.create({ mysql_member_id: Number(memberId) });
@@ -160,9 +177,11 @@ export const borrowBook = async (req: Request, res: Response): Promise<void> => 
 
         await TransactionLedger.create({
             action: 'BORROW_INITIATED',
-            member_mongo_id: memberProfile._id,
-            book_mongo_id: mongoBook._id
+            member_mongo_id: memberProfile._id as any,
+            book_mongo_id: mongoBook._id as any
         });
+
+        await safeAuditLog(req, 'BORROW_INITIATED', 'LOAN', `M${memberId}-B${bookId}`, `Issued loan for Book #${bookId} to Member #${memberId}`);
 
         res.status(201).json({ status: 'success', message: 'Book borrowed successfully.' });
     } catch (error: any) {
@@ -194,16 +213,14 @@ export const returnBook = async (req: Request, res: Response): Promise<void> => 
                 memberProfile = await MemberProfile.create({ mysql_member_id: loanData.member_id });
             }
 
-            // FIX #4: Write to Transaction Ledger
             await TransactionLedger.create({
                 mysql_loan_id: Number(loanId),
                 action: 'BOOK_RETURNED',
-                member_mongo_id: memberProfile._id,
-                book_mongo_id: mongoBook._id,
+                member_mongo_id: memberProfile._id as any,
+                book_mongo_id: mongoBook._id as any,
                 duration_days: loanData.days_kept
             });
 
-            // FIX #4: Dynamically calculate the True Average Return Time using the Ledger
             const allReturns = await TransactionLedger.find({ 
                 book_mongo_id: mongoBook._id, 
                 action: 'BOOK_RETURNED' 
@@ -216,6 +233,8 @@ export const returnBook = async (req: Request, res: Response): Promise<void> => 
                 { book_mongo_id: mongoBook._id },
                 { avg_return_time_days: avgTime }
             );
+
+            await safeAuditLog(req, 'BOOK_RETURNED', 'LOAN', loanId, `Processed return for Loan #${loanId}. Kept for ${loanData.days_kept} days.`);
         }
 
         res.status(200).json({ status: 'success', message: 'Book returned successfully.' });
@@ -227,13 +246,8 @@ export const returnBook = async (req: Request, res: Response): Promise<void> => 
 export const getActiveLoansByMember = async (req: Request, res: Response): Promise<void> => {
     const memberId = Number(req.params.memberId);
     try {
-        // Call the MySQL procedure to get active loans
         const [rows]: any = await mysqlPool.execute('CALL get_member_current_loans(?)', [memberId]);
-
-        res.status(200).json({ 
-            status: 'success', 
-            data: rows[0] 
-        });
+        res.status(200).json({ status: 'success', data: rows[0] });
     } catch (error: any) {
         console.error('Fetch Loans Error:', error.message);
         res.status(500).json({ status: 'error', message: 'Failed to fetch active loans.' });
@@ -243,22 +257,11 @@ export const getActiveLoansByMember = async (req: Request, res: Response): Promi
 export const getAllActiveLoans = async (req: Request, res: Response): Promise<void> => {
     try {
         const [rows]: any = await mysqlPool.execute(
-            `SELECT 
-                l.loan_id,
-                CONCAT(m.first_name, ' ', m.last_name) AS member_name,
-                b.title,
-                DATE_FORMAT(l.due_date, '%Y-%m-%d') as due_date
-             FROM loans l
-             JOIN members m ON l.member_id = m.member_id
-             JOIN books b ON l.book_id = b.book_id
-             WHERE l.return_date IS NULL
-             ORDER BY l.due_date ASC`
+            `SELECT l.loan_id, CONCAT(m.first_name, ' ', m.last_name) AS member_name, b.title, DATE_FORMAT(l.due_date, '%Y-%m-%d') as due_date
+             FROM loans l JOIN members m ON l.member_id = m.member_id JOIN books b ON l.book_id = b.book_id
+             WHERE l.return_date IS NULL ORDER BY l.due_date ASC`
         );
-
-        res.status(200).json({
-            status: 'success',
-            data: rows
-        });
+        res.status(200).json({ status: 'success', data: rows });
     } catch (error: any) {
         console.error('Fetch All Active Loans Error:', error.message);
         res.status(500).json({ status: 'error', message: 'Failed to fetch active loans.' });
@@ -267,18 +270,12 @@ export const getAllActiveLoans = async (req: Request, res: Response): Promise<vo
 
 export const getUnpaidFines = async (req: Request, res: Response): Promise<void> => {
     try {
-        // Fetch all unpaid fines, joining members and books for human-readable context
         const [rows]: any = await mysqlPool.execute(`
             SELECT f.fine_id, f.amount, DATE_FORMAT(f.created_at, '%Y-%m-%d') as issued_date,
                    l.loan_id, b.title, CONCAT(m.first_name, ' ', m.last_name) AS member_name, m.member_id
-            FROM fines f
-            JOIN loans l ON f.loan_id = l.loan_id
-            JOIN books b ON l.book_id = b.book_id
-            JOIN members m ON l.member_id = m.member_id
-            WHERE f.is_paid = FALSE
-            ORDER BY f.created_at DESC
+            FROM fines f JOIN loans l ON f.loan_id = l.loan_id JOIN books b ON l.book_id = b.book_id JOIN members m ON l.member_id = m.member_id
+            WHERE f.is_paid = FALSE ORDER BY f.created_at DESC
         `);
-        
         res.status(200).json({ status: 'success', data: rows });
     } catch (error: any) {
         console.error('Fetch Fines Error:', error.message);
@@ -290,11 +287,9 @@ export const settleFine = async (req: Request, res: Response): Promise<void> => 
     const fineId = Number(req.params.fineId);
 
     try {
-        // 1. Fetch the exact loan/member details from MySQL before updating
         const [fineDataRows]: any = await mysqlPool.execute(`
-            SELECT f.fine_id, l.member_id, l.book_id
-            FROM fines f JOIN loans l ON f.loan_id = l.loan_id
-            WHERE f.fine_id = ?
+            SELECT f.fine_id, f.amount, l.member_id, l.book_id
+            FROM fines f JOIN loans l ON f.loan_id = l.loan_id WHERE f.fine_id = ?
         `, [fineId]);
 
         if (fineDataRows.length === 0) {
@@ -302,10 +297,8 @@ export const settleFine = async (req: Request, res: Response): Promise<void> => 
         }
         const fineData = fineDataRows[0];
 
-        // 2. Call the MySQL Payment Procedure
         await mysqlPool.execute('CALL process_fine_payment(?)', [fineId]);
 
-        // 3. Log the financial action in the immutable MongoDB Transaction Ledger
         const mongoBook = await BookContent.findOne({ mysql_book_id: fineData.book_id });
         let memberProfile = await MemberProfile.findOne({ mysql_member_id: fineData.member_id });
         
@@ -317,9 +310,11 @@ export const settleFine = async (req: Request, res: Response): Promise<void> => 
             await TransactionLedger.create({
                 mysql_fine_id: fineId,
                 action: 'FINE_PAID',
-                member_mongo_id: memberProfile._id,
-                book_mongo_id: mongoBook._id
+                member_mongo_id: memberProfile._id as any,
+                book_mongo_id: mongoBook._id as any
             });
+
+            await safeAuditLog(req, 'FINE_SETTLED', 'FINE', fineId, `Settled fine of ₱${fineData.amount} for Member #${fineData.member_id}.`);
         }
 
         res.status(200).json({ status: 'success', message: 'Fine settled and recorded in ledger.' });
@@ -330,15 +325,12 @@ export const settleFine = async (req: Request, res: Response): Promise<void> => 
 
 export const runDiagnostics = async (req: Request, res: Response): Promise<void> => {
     try {
-        // 1. Fetch the master record of all books in MySQL
         const [mysqlBooks]: any = await mysqlPool.execute('SELECT book_id, title FROM books');
         const mysqlIds = mysqlBooks.map((b: any) => b.book_id);
 
-        // 2. Fetch the master record of all rich documents in MongoDB
         const mongoBooks = await BookContent.find({}, 'mysql_book_id');
         const mongoIds = mongoBooks.map(b => b.mysql_book_id);
 
-        // 3. Mathematical Set Difference (Find the Orphans)
         const mysqlOrphans = mysqlBooks.filter((b: any) => !mongoIds.includes(b.book_id));
         const mongoOrphans = mongoBooks.filter(b => !mysqlIds.includes(b.mysql_book_id));
 
@@ -366,7 +358,6 @@ export const repairDatabases = async (req: Request, res: Response): Promise<void
         const mysqlOrphans = mysqlBooks.filter((b: any) => !mongoIds.includes(b.book_id));
         const mongoOrphans = mongoBooks.filter(b => !mysqlIds.includes(b.mysql_book_id));
 
-        // AUTO-REPAIR 1: Create missing MongoDB documents for MySQL books
         for (const orphan of mysqlOrphans) {
             await BookContent.create({
                 mysql_book_id: orphan.book_id,
@@ -376,10 +367,9 @@ export const repairDatabases = async (req: Request, res: Response): Promise<void
             });
         }
 
-        // AUTO-REPAIR 2: Delete ghost MongoDB documents that have no MySQL parent
         for (const orphan of mongoOrphans) {
             await BookContent.deleteOne({ _id: orphan._id });
-            await BookAnalytics.deleteOne({ book_mongo_id: orphan._id }); // Clean analytics too
+            await BookAnalytics.deleteOne({ book_mongo_id: orphan._id });
         }
 
         res.status(200).json({ status: 'success', message: 'Databases successfully synchronized.' });
@@ -393,19 +383,18 @@ export const updateBookDetails = async (req: Request, res: Response): Promise<vo
     const { title, isbn, authorId, categoryId, synopsis, coverImage, totalCopies } = req.body;
 
     try {
-        // 1. Update MySQL (Relational Data)
         await mysqlPool.execute('CALL update_book(?, ?, ?, ?, ?)', [bookId, authorId, categoryId, title, isbn]);
 
-        // 2. Update MongoDB (Rich Content)
         await BookContent.findOneAndUpdate(
             { mysql_book_id: bookId },
             { 
                 synopsis: synopsis,
                 cover_image_url: coverImage,
                 'inventory.total_copies': totalCopies
-                // Note: We don't directly edit available_copies here to prevent messing up active loan math
             }
         );
+
+        await safeAuditLog(req, 'BOOK_UPDATE', 'BOOK', bookId, `Updated details for book #${bookId}: "${title}"`);
 
         res.status(200).json({ status: 'success', message: 'Book updated successfully.' });
     } catch (error: any) {
@@ -421,7 +410,9 @@ export const deleteBookRecord = async (req: Request, res: Response): Promise<voi
     const book_id = Number(req.params.bookId);
 
     try {
-        // 1. CHECK FOR ACTIVE LOANS FIRST (Manual Logic Guardrail)
+        const [bookRows]: any = await mysqlPool.execute('SELECT title FROM books WHERE book_id = ?', [book_id]);
+        const bookTitle = bookRows[0]?.title || `ID #${book_id}`;
+
         const [activeLoans]: any = await mysqlPool.execute(
             'SELECT loan_id FROM loans WHERE book_id = ? AND return_date IS NULL',
             [book_id]
@@ -435,7 +426,6 @@ export const deleteBookRecord = async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        // 2. CHECK FOR UNPAID FINES
         const [unpaidFines]: any = await mysqlPool.execute(
             'SELECT f.fine_id FROM fines f JOIN loans l ON f.loan_id = l.loan_id WHERE l.book_id = ? AND f.is_paid = FALSE',
             [book_id]
@@ -449,14 +439,14 @@ export const deleteBookRecord = async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        // 3. PROCEED TO ARCHIVE (This triggers trg_arc_books)
         await mysqlPool.execute('CALL delete_book(?)', [book_id]);
 
-        // 4. CLEANUP MONGODB
         const mongoBook = await BookContent.findOneAndDelete({ mysql_book_id: book_id });
         if (mongoBook) {
             await BookAnalytics.deleteOne({ book_mongo_id: mongoBook._id });
         }
+
+        await safeAuditLog(req, 'BOOK_ARCHIVE', 'BOOK', book_id, `Moved "${bookTitle}" to the 30-day archive vault.`);
 
         res.status(200).json({ status: 'success', message: 'Book securely moved to 30-day archive.' });
     } catch (error: any) {
@@ -486,7 +476,6 @@ export const restoreBookFromVault = async (req: Request, res: Response): Promise
     const archiveId = Number(req.params.archiveId);
 
     try {
-        // 1. Fetch the archive record
         const [arcRows]: any = await mysqlPool.execute('SELECT original_id, record_payload FROM books_archive WHERE archive_id = ?', [archiveId]);
         
         if (arcRows.length === 0) {
@@ -494,22 +483,19 @@ export const restoreBookFromVault = async (req: Request, res: Response): Promise
             return;
         }
 
-        // FIX: mysql2 automatically parses the JSON column into an object.
-        // We do NOT need JSON.parse() here.
         const payload = arcRows[0].record_payload;
         const originalId = arcRows[0].original_id;
 
-        // 2. Run MySQL Restoration Procedure
         await mysqlPool.execute('CALL restore_book(?)', [archiveId]);
 
-        // 3. Re-create MongoDB Active Record
-        // Using the data directly from the payload object
         await BookContent.create({
             mysql_book_id: originalId,
             synopsis: payload.synopsis || 'Recovered from archive.',
             cover_image_url: payload.cover_image_url || 'https://via.placeholder.com/300x450?text=Restored',
             inventory: { total_copies: 1, available_copies: 1 }
         });
+
+        await safeAuditLog(req, 'BOOK_RESTORE', 'BOOK', originalId, `Restored book: "${payload.title}" from the vault.`);
 
         res.status(200).json({ status: 'success', message: 'Book successfully restored to the active catalog.' });
     } catch (error: any) {
@@ -518,7 +504,6 @@ export const restoreBookFromVault = async (req: Request, res: Response): Promise
     }
 };
 
-// Fetch all authors for the management list
 export const getAllAuthors = async (req: Request, res: Response): Promise<void> => {
     try {
         const [rows]: any = await mysqlPool.execute(
@@ -530,12 +515,12 @@ export const getAllAuthors = async (req: Request, res: Response): Promise<void> 
     }
 };
 
-// Update an author's name
 export const updateAuthorRecord = async (req: Request, res: Response): Promise<void> => {
     const { authorId } = req.params;
     const { first_name, last_name } = req.body;
     try {
         await mysqlPool.execute('CALL update_author(?, ?, ?)', [authorId, first_name, last_name]);
+        await safeAuditLog(req, 'AUTHOR_UPDATE', 'AUTHOR', authorId, `Updated author identity to: ${first_name} ${last_name}`);
         res.status(200).json({ status: 'success', message: 'Author updated successfully.' });
     } catch (error: any) {
         res.status(500).json({ status: 'error', message: error.message });
@@ -545,8 +530,12 @@ export const updateAuthorRecord = async (req: Request, res: Response): Promise<v
 export const deleteAuthorRecord = async (req: Request, res: Response): Promise<void> => {
     const { authorId } = req.params;
     try {
-        // This will trigger trg_arc_authors in MySQL
+        const [authorRows]: any = await mysqlPool.execute('SELECT first_name, last_name FROM authors WHERE author_id = ?', [authorId]);
+        const authorName = authorRows[0] ? `${authorRows[0].first_name} ${authorRows[0].last_name}` : `ID #${authorId}`;
+
         await mysqlPool.execute('DELETE FROM authors WHERE author_id = ?', [authorId]);
+        await safeAuditLog(req, 'AUTHOR_ARCHIVE', 'AUTHOR', authorId, `Moved author "${authorName}" to the archive vault.`);
+
         res.status(200).json({ status: 'success', message: 'Author moved to 30-day archive.' });
     } catch (error: any) {
         if (error.message.includes('foreign key constraint')) {
@@ -580,10 +569,35 @@ export const getArchivedAuthors = async (req: Request, res: Response): Promise<v
 export const restoreAuthor = async (req: Request, res: Response): Promise<void> => {
     const archiveId = Number(req.params.archiveId);
     try {
+        const [arcRows]: any = await mysqlPool.execute('SELECT original_id, record_payload FROM authors_archive WHERE archive_id = ?', [archiveId]);
+        if (arcRows.length === 0) { res.status(404).json({ status: 'error', message: 'Not found.' }); return; }
+        
+        const payload = arcRows[0].record_payload;
+        const originalId = arcRows[0].original_id;
+
         await mysqlPool.execute('CALL restore_author(?)', [archiveId]);
+        await safeAuditLog(req, 'AUTHOR_RESTORE', 'AUTHOR', originalId, `Restored author "${payload.first_name} ${payload.last_name}" from archive.`);
+
         res.status(200).json({ status: 'success', message: 'Author successfully restored.' });
     } catch (error: any) {
         console.error('Author Restore Error:', error.message);
         res.status(500).json({ status: 'error', message: 'Failed to restore author.' });
+    }
+};
+
+export const getAuditTrails = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { action, entity, search } = req.query;
+        let query: any = {};
+
+        if (action) query.action = action;
+        if (entity) query.entity_type = entity;
+        if (search) query.details = { $regex: search, $options: 'i' };
+
+        const logs = await AuditLog.find(query).sort({ timestamp: -1 }).limit(100);
+        
+        res.status(200).json({ status: 'success', data: logs });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: 'Failed to fetch audit trails.' });
     }
 };

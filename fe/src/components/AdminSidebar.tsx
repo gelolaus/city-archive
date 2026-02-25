@@ -121,6 +121,10 @@ export default function AdminSidebar() {
         <div>
           <p style={sectionTitleStyle}>System</p>
           <div style={navSectionStyle}>
+            <NavLink to="/admin/audit-logs" style={navLinkStyle}>
+              <span>📋</span>
+              <span>Audit Trails</span>
+            </NavLink>
             <NavLink to="/admin/diagnostics" style={navLinkStyle}>
               <span>🛠️</span>
               <span>Diagnostics</span>
@@ -135,4 +139,3 @@ export default function AdminSidebar() {
     </aside>
   );
 }
-
