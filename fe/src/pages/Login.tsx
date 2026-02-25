@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 
 export default function Login() {
@@ -77,6 +77,11 @@ export default function Login() {
           {loading ? "Authenticating..." : "Login"}
         </button>
       </form>
+
+      <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px' }}>
+        New here? <Link to="/register" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 'bold' }}>Register an account</Link>
+      </div>
+      
     </div>
   );
 }
