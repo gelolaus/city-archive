@@ -5,7 +5,7 @@
   "main": "be/dist/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "vite build",
+    "build": "tsc",
     "start": "node be/dist/server.js",
     "dev": "nodemon --watch \"be/src/**/*.ts\" --exec \"ts-node\" ./be/src/server.ts"
   },
