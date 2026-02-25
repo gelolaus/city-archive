@@ -26,6 +26,11 @@ export default function ManageAuthors() {
   const [archiveError, setArchiveError] = useState("");
   const [archiveSuccess, setArchiveSuccess] = useState("");
 
+  // Simple client-side pagination
+  const [authorPage, setAuthorPage] = useState(1);
+  const [archivePage, setArchivePage] = useState(1);
+  const PAGE_SIZE = 10;
+
   const refreshAuthors = async () => { /* ... existing logic ... */
     setLoadingAuthors(true); setManageError("");
     try {
@@ -48,11 +53,16 @@ export default function ManageAuthors() {
     const s = authorSearch.toLowerCase();
     return `${a.first_name} ${a.last_name}`.toLowerCase().includes(s) || String(a.author_id).includes(s);
   });
+  const totalAuthorPages = Math.max(1, Math.ceil(filteredAuthors.length / PAGE_SIZE));
+  const pagedAuthors = filteredAuthors.slice((authorPage - 1) * PAGE_SIZE, authorPage * PAGE_SIZE);
+
   const filteredArchives = archives.filter(arc => {
     const s = archiveSearch.toLowerCase();
     const payload = typeof arc.record_payload === "string" ? JSON.parse(arc.record_payload) : arc.record_payload;
     return `${payload.first_name} ${payload.last_name}`.toLowerCase().includes(s) || String(arc.original_id).includes(s);
   });
+  const totalArchivePages = Math.max(1, Math.ceil(filteredArchives.length / PAGE_SIZE));
+  const pagedArchives = filteredArchives.slice((archivePage - 1) * PAGE_SIZE, archivePage * PAGE_SIZE);
 
   // NEW: Handle Add Author
   const handleAddSubmit = async (e: FormEvent) => {
@@ -127,7 +137,13 @@ export default function ManageAuthors() {
         <section style={{ backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", padding: "20px 24px" }}>
           <h2 style={{ margin: 0, fontSize: "18px" }}>Manage Authors</h2>
           <p style={{ margin: 0, marginTop: "4px", marginBottom: "14px", color: "#64748b", fontSize: "13px" }}>Active directory used across the catalog.</p>
-          <input type="text" placeholder="Search authors by name or ID..." value={authorSearch} onChange={(e) => setAuthorSearch(e.target.value)} style={{ width: "100%", padding: "10px 12px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", fontSize: "14px" }} />
+          <input
+            type="text"
+            placeholder="Search authors by name or ID..."
+            value={authorSearch}
+            onChange={(e) => { setAuthorSearch(e.target.value); setAuthorPage(1); }}
+            style={{ width: "100%", padding: "10px 12px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", fontSize: "14px" }}
+          />
           {manageError && <p style={{ color: "#dc2626", marginTop: 0 }}>{manageError}</p>}
           {manageSuccess && <p style={{ color: "#16a34a", marginTop: 0 }}>{manageSuccess}</p>}
 
@@ -140,8 +156,8 @@ export default function ManageAuthors() {
                 </tr>
               </thead>
               <tbody>
-                {loadingAuthors ? (<tr><td colSpan={2} style={{ padding: "16px", textAlign: "center" }}>Loading authors...</td></tr>) : filteredAuthors.length === 0 ? (<tr><td colSpan={2} style={{ padding: "16px", textAlign: "center" }}>No authors match.</td></tr>) : (
-                  filteredAuthors.map((a) => (
+              {loadingAuthors ? (<tr><td colSpan={2} style={{ padding: "16px", textAlign: "center" }}>Loading authors...</td></tr>) : filteredAuthors.length === 0 ? (<tr><td colSpan={2} style={{ padding: "16px", textAlign: "center" }}>No authors match.</td></tr>) : (
+                  pagedAuthors.map((a) => (
                     <tr key={a.author_id} style={{ borderTop: "1px solid #e2e8f0" }}>
                       <td style={{ padding: "12px 16px" }}>{a.first_name} {a.last_name}</td>
                       <td style={{ padding: "12px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
@@ -154,13 +170,60 @@ export default function ManageAuthors() {
               </tbody>
             </table>
           </div>
+
+          {/* Authors pagination controls */}
+          {filteredAuthors.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px", fontSize: "13px", color: "#64748b" }}>
+              <span>
+                Showing {(authorPage - 1) * PAGE_SIZE + 1}–
+                {Math.min(authorPage * PAGE_SIZE, filteredAuthors.length)} of {filteredAuthors.length} authors
+              </span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setAuthorPage((p) => Math.max(1, p - 1))}
+                  disabled={authorPage === 1}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: authorPage === 1 ? "#e5e7eb" : "white",
+                    cursor: authorPage === 1 ? "default" : "pointer"
+                  }}
+                >
+                  Previous
+                </button>
+                <span style={{ alignSelf: "center" }}>Page {authorPage} of {totalAuthorPages}</span>
+                <button
+                  type="button"
+                  onClick={() => setAuthorPage((p) => Math.min(totalAuthorPages, p + 1))}
+                  disabled={authorPage === totalAuthorPages}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: authorPage === totalAuthorPages ? "#e5e7eb" : "white",
+                    cursor: authorPage === totalAuthorPages ? "default" : "pointer"
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* RIGHT: AUTHOR ARCHIVE VAULT */}
         <section style={{ backgroundColor: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0", padding: "20px 24px" }}>
           <h2 style={{ margin: 0, fontSize: "18px" }}>Archive Vault</h2>
           <p style={{ marginTop: "4px", marginBottom: "14px", fontSize: "13px", color: "#64748b" }}>Soft-deleted records pending removal.</p>
-          <input type="text" placeholder="Search archive..." value={archiveSearch} onChange={(e) => setArchiveSearch(e.target.value)} style={{ width: "100%", padding: "10px 12px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", fontSize: "14px" }} />
+          <input
+            type="text"
+            placeholder="Search archive..."
+            value={archiveSearch}
+            onChange={(e) => { setArchiveSearch(e.target.value); setArchivePage(1); }}
+            style={{ width: "100%", padding: "10px 12px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", fontSize: "14px" }}
+          />
           {archiveError && <p style={{ color: "#dc2626", marginTop: 0 }}>{archiveError}</p>}
           {archiveSuccess && <p style={{ color: "#16a34a", marginTop: 0 }}>{archiveSuccess}</p>}
 
@@ -175,7 +238,7 @@ export default function ManageAuthors() {
               </thead>
               <tbody>
                 {loadingArchives ? (<tr><td colSpan={3} style={{ padding: "16px", textAlign: "center" }}>Loading archive...</td></tr>) : filteredArchives.length === 0 ? (<tr><td colSpan={3} style={{ padding: "16px", textAlign: "center" }}>Vault empty or no match.</td></tr>) : (
-                  filteredArchives.map((arc) => {
+                  pagedArchives.map((arc) => {
                     const payload = typeof arc.record_payload === "string" ? JSON.parse(arc.record_payload) : arc.record_payload;
                     return (
                       <tr key={arc.archive_id} style={{ borderTop: "1px solid #e2e8f0" }}>
@@ -191,6 +254,47 @@ export default function ManageAuthors() {
               </tbody>
             </table>
           </div>
+
+          {/* Archive pagination controls */}
+          {filteredArchives.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px", fontSize: "13px", color: "#64748b" }}>
+              <span>
+                Showing {(archivePage - 1) * PAGE_SIZE + 1}–
+                {Math.min(archivePage * PAGE_SIZE, filteredArchives.length)} of {filteredArchives.length} archived authors
+              </span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setArchivePage((p) => Math.max(1, p - 1))}
+                  disabled={archivePage === 1}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: archivePage === 1 ? "#e5e7eb" : "white",
+                    cursor: archivePage === 1 ? "default" : "pointer"
+                  }}
+                >
+                  Previous
+                </button>
+                <span style={{ alignSelf: "center" }}>Page {archivePage} of {totalArchivePages}</span>
+                <button
+                  type="button"
+                  onClick={() => setArchivePage((p) => Math.min(totalArchivePages, p + 1))}
+                  disabled={archivePage === totalArchivePages}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: archivePage === totalArchivePages ? "#e5e7eb" : "white",
+                    cursor: archivePage === totalArchivePages ? "default" : "pointer"
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </section>
         
       </div>

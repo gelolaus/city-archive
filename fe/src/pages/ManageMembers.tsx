@@ -10,6 +10,10 @@ export default function ManageMembers() {
   // --- Search State ---
   const [memberSearch, setMemberSearch] = useState("");
 
+  // --- Pagination State ---
+  const [memberPage, setMemberPage] = useState(1);
+  const PAGE_SIZE = 10;
+
   // --- Edit Modal State ---
   const [editingMember, setEditingMember] = useState<any>(null);
   const [editForm, setEditForm] = useState({ 
@@ -46,6 +50,8 @@ export default function ManageMembers() {
       String(m.member_id).includes(searchLower)
     );
   });
+  const totalMemberPages = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
+  const pagedMembers = filteredMembers.slice((memberPage - 1) * PAGE_SIZE, memberPage * PAGE_SIZE);
 
   // --- Edit Handlers ---
   const openEditModal = (member: any) => {
@@ -104,7 +110,7 @@ export default function ManageMembers() {
         type="text"
         placeholder="Search members by name, email, username, or ID..."
         value={memberSearch}
-        onChange={(e) => setMemberSearch(e.target.value)}
+        onChange={(e) => { setMemberSearch(e.target.value); setMemberPage(1); }}
         style={{
           width: "100%",
           padding: "12px 16px",
@@ -144,7 +150,7 @@ export default function ManageMembers() {
             ) : filteredMembers.length === 0 ? (
               <tr><td colSpan={4} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>No members match your search.</td></tr>
             ) : (
-              filteredMembers.map((m) => (
+              pagedMembers.map((m) => (
                 <tr key={m.member_id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td style={{ padding: '15px' }}>
                     <span style={{ fontWeight: 'bold' }}>{m.first_name} {m.last_name}</span><br />
@@ -168,6 +174,47 @@ export default function ManageMembers() {
           </tbody>
         </table>
       </div>
+
+      {/* --- Pagination Controls --- */}
+      {filteredMembers.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px", fontSize: "13px", color: "#64748b" }}>
+          <span>
+            Showing {(memberPage - 1) * PAGE_SIZE + 1}–
+            {Math.min(memberPage * PAGE_SIZE, filteredMembers.length)} of {filteredMembers.length} members
+          </span>
+          <div style={{ display: "flex", gap: "6px" }}>
+            <button
+              type="button"
+              onClick={() => setMemberPage((p) => Math.max(1, p - 1))}
+              disabled={memberPage === 1}
+              style={{
+                padding: "6px 10px",
+                borderRadius: "4px",
+                border: "1px solid #cbd5e1",
+                backgroundColor: memberPage === 1 ? "#e5e7eb" : "white",
+                cursor: memberPage === 1 ? "default" : "pointer"
+              }}
+            >
+              Previous
+            </button>
+            <span style={{ alignSelf: "center" }}>Page {memberPage} of {totalMemberPages}</span>
+            <button
+              type="button"
+              onClick={() => setMemberPage((p) => Math.min(totalMemberPages, p + 1))}
+              disabled={memberPage === totalMemberPages}
+              style={{
+                padding: "6px 10px",
+                borderRadius: "4px",
+                border: "1px solid #cbd5e1",
+                backgroundColor: memberPage === totalMemberPages ? "#e5e7eb" : "white",
+                cursor: memberPage === totalMemberPages ? "default" : "pointer"
+              }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* --- EDIT MODAL --- */}
       {editingMember && (

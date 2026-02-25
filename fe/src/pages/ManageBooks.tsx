@@ -33,6 +33,11 @@ export default function ManageBooks() {
   const [archiveError, setArchiveError] = useState("");
   const [archiveSuccess, setArchiveSuccess] = useState("");
 
+  // Simple client-side pagination
+  const [bookPage, setBookPage] = useState(1);
+  const [archivePage, setArchivePage] = useState(1);
+  const PAGE_SIZE = 10;
+
   const fetchData = async () => {
     setLoadingBooks(true); setLoadingArchives(true);
     try {
@@ -59,12 +64,16 @@ export default function ManageBooks() {
     const s = bookSearch.toLowerCase();
     return b.title.toLowerCase().includes(s) || b.author.toLowerCase().includes(s) || b.isbn.includes(s) || String(b.book_id).includes(s);
   });
+  const totalBookPages = Math.max(1, Math.ceil(filteredBooks.length / PAGE_SIZE));
+  const pagedBooks = filteredBooks.slice((bookPage - 1) * PAGE_SIZE, bookPage * PAGE_SIZE);
 
   const filteredArchives = archives.filter(arc => {
     const s = archiveSearch.toLowerCase();
     const payload = typeof arc.record_payload === "string" ? JSON.parse(arc.record_payload) : arc.record_payload;
     return payload.title?.toLowerCase().includes(s) || payload.isbn?.includes(s) || String(arc.original_id).includes(s);
   });
+  const totalArchivePages = Math.max(1, Math.ceil(filteredArchives.length / PAGE_SIZE));
+  const pagedArchives = filteredArchives.slice((archivePage - 1) * PAGE_SIZE, archivePage * PAGE_SIZE);
 
   const handleAddChange = (e: any) => {
     const { name, value } = e.target;
@@ -230,7 +239,13 @@ export default function ManageBooks() {
           <h2 style={{ marginTop: 0, marginBottom: "4px", fontSize: "18px" }}>Manage Catalog</h2>
           <p style={{ color: "#64748b", marginTop: 0, marginBottom: "14px", fontSize: "13px" }}>Edit inventory details or archive books.</p>
           
-          <input type="text" placeholder="Search catalog by title, author, ISBN..." value={bookSearch} onChange={(e) => setBookSearch(e.target.value)} style={{ width: "100%", padding: "10px 12px", marginBottom: "16px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", fontSize: "14px" }} />
+          <input
+            type="text"
+            placeholder="Search catalog by title, author, ISBN..."
+            value={bookSearch}
+            onChange={(e) => { setBookSearch(e.target.value); setBookPage(1); }}
+            style={{ width: "100%", padding: "10px 12px", marginBottom: "16px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", fontSize: "14px" }}
+          />
 
           {manageError && <div style={{ color: "#b91c1c", marginBottom: "15px", padding: "10px", backgroundColor: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "4px", fontWeight: "bold" }}>{manageError}</div>}
           {manageSuccess && <div style={{ color: "#15803d", marginBottom: "15px", padding: "10px", backgroundColor: "#f0fdf4", border: "1px solid #86efac", borderRadius: "4px", fontWeight: "bold" }}>{manageSuccess}</div>}
@@ -251,7 +266,7 @@ export default function ManageBooks() {
                 ) : filteredBooks.length === 0 ? (
                   <tr><td colSpan={4} style={{ padding: "20px", textAlign: "center", color: '#64748b' }}>No books match your search.</td></tr>
                 ) : (
-                  filteredBooks.map((book) => (
+                  pagedBooks.map((book) => (
                     <tr key={book.book_id} style={{ borderBottom: "1px solid #e2e8f0" }}>
                       <td style={{ padding: "12px 16px", color: "#64748b" }}>#{book.book_id}</td>
                       <td style={{ padding: "12px 16px" }}><strong>{book.title}</strong><br /><span style={{ fontSize: "12px", color: "#64748b" }}>by {book.author}</span></td>
@@ -266,6 +281,35 @@ export default function ManageBooks() {
               </tbody>
             </table>
           </div>
+
+          {/* Catalog pagination controls */}
+          {filteredBooks.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px", fontSize: "13px", color: "#64748b" }}>
+              <span>
+                Showing {(bookPage - 1) * PAGE_SIZE + 1}–
+                {Math.min(bookPage * PAGE_SIZE, filteredBooks.length)} of {filteredBooks.length} titles
+              </span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setBookPage((p) => Math.max(1, p - 1))}
+                  disabled={bookPage === 1}
+                  style={{ padding: "6px 10px", borderRadius: "4px", border: "1px solid #cbd5e1", backgroundColor: bookPage === 1 ? "#e5e7eb" : "white", cursor: bookPage === 1 ? "default" : "pointer" }}
+                >
+                  Previous
+                </button>
+                <span style={{ alignSelf: "center" }}>Page {bookPage} of {totalBookPages}</span>
+                <button
+                  type="button"
+                  onClick={() => setBookPage((p) => Math.min(totalBookPages, p + 1))}
+                  disabled={bookPage === totalBookPages}
+                  style={{ padding: "6px 10px", borderRadius: "4px", border: "1px solid #cbd5e1", backgroundColor: bookPage === totalBookPages ? "#e5e7eb" : "white", cursor: bookPage === totalBookPages ? "default" : "pointer" }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ARCHIVE VAULT */}
@@ -273,7 +317,13 @@ export default function ManageBooks() {
           <h2 style={{ marginTop: 0, marginBottom: "4px", fontSize: "18px" }}>Archive Vault</h2>
           <p style={{ color: "#64748b", marginTop: 0, marginBottom: "14px", fontSize: "13px" }}>Soft-deleted records pending purge.</p>
           
-          <input type="text" placeholder="Search archives..." value={archiveSearch} onChange={(e) => setArchiveSearch(e.target.value)} style={{ width: "100%", padding: "10px 12px", marginBottom: "16px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", fontSize: "14px" }} />
+          <input
+            type="text"
+            placeholder="Search archives..."
+            value={archiveSearch}
+            onChange={(e) => { setArchiveSearch(e.target.value); setArchivePage(1); }}
+            style={{ width: "100%", padding: "10px 12px", marginBottom: "16px", borderRadius: "6px", border: "1px solid #cbd5e1", boxSizing: "border-box", fontSize: "14px" }}
+          />
 
           {archiveError && <div style={{ color: "#b91c1c", marginBottom: "15px", padding: "10px", backgroundColor: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "4px", fontWeight: "bold" }}>{archiveError}</div>}
           {archiveSuccess && <div style={{ color: "#15803d", marginBottom: "15px", padding: "10px", backgroundColor: "#f0fdf4", border: "1px solid #86efac", borderRadius: "4px", fontWeight: "bold" }}>{archiveSuccess}</div>}
@@ -293,7 +343,7 @@ export default function ManageBooks() {
                 ) : filteredArchives.length === 0 ? (
                   <tr><td colSpan={3} style={{ padding: "20px", textAlign: "center", color: "#64748b" }}>Vault empty or no match.</td></tr>
                 ) : (
-                  filteredArchives.map((arc) => {
+                  pagedArchives.map((arc) => {
                     const payload = typeof arc.record_payload === "string" ? JSON.parse(arc.record_payload) : arc.record_payload;
                     return (
                       <tr key={arc.archive_id} style={{ borderBottom: "1px solid #e2e8f0" }}>
@@ -309,6 +359,47 @@ export default function ManageBooks() {
               </tbody>
             </table>
           </div>
+
+          {/* Archive pagination controls */}
+          {filteredArchives.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px", fontSize: "13px", color: "#64748b" }}>
+              <span>
+                Showing {(archivePage - 1) * PAGE_SIZE + 1}–
+                {Math.min(archivePage * PAGE_SIZE, filteredArchives.length)} of {filteredArchives.length} archived records
+              </span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setArchivePage((p) => Math.max(1, p - 1))}
+                  disabled={archivePage === 1}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: archivePage === 1 ? "#e5e7eb" : "white",
+                    cursor: archivePage === 1 ? "default" : "pointer"
+                  }}
+                >
+                  Previous
+                </button>
+                <span style={{ alignSelf: "center" }}>Page {archivePage} of {totalArchivePages}</span>
+                <button
+                  type="button"
+                  onClick={() => setArchivePage((p) => Math.min(totalArchivePages, p + 1))}
+                  disabled={archivePage === totalArchivePages}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: archivePage === totalArchivePages ? "#e5e7eb" : "white",
+                    cursor: archivePage === totalArchivePages ? "default" : "pointer"
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       </div>
 

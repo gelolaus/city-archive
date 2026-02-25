@@ -6,16 +6,37 @@ import { BookContent, TelemetryLog, BookAnalytics, TransactionLedger, MemberProf
 // ==========================================
 // BULLETPROOF AUDIT HELPER
 // ==========================================
-const safeAuditLog = async (req: Request, action: string, entity_type: string, entity_id: any, details: string) => {
+// Centralized helper to write rich, contextual audit entries without ever
+// breaking primary business flows if logging fails.
+const safeAuditLog = async (
+    req: Request,
+    action: string,
+    entity_type: string,
+    entity_id: any,
+    details: string | Record<string, any>
+) => {
     try {
         const user = (req as any).user || { id: 999, username: 'System_Admin' };
+
+        const meta = {
+            ip: req.ip || (req.socket && req.socket.remoteAddress) || 'unknown',
+            method: req.method,
+            path: (req as any).originalUrl || req.url,
+            userAgent: req.headers['user-agent'] || 'Unknown UA'
+        };
+
+        const finalDetails =
+            typeof details === 'string'
+                ? `${details} | meta=${JSON.stringify(meta)}`
+                : JSON.stringify({ ...details, meta });
+
         await AuditLog.create({
             librarian_id: user.id || 999,
             username: user.username || 'System_Admin',
             action,
             entity_type,
             entity_id: String(entity_id),
-            details
+            details: finalDetails
         });
     } catch (error: any) {
         console.error(`[NON-FATAL AUDIT ERROR] Failed to log ${action}:`, error.message);
@@ -392,7 +413,7 @@ export const updateBookDetails = async (req: Request, res: Response): Promise<vo
         // If authorId or categoryId are not provided by the caller (e.g. current admin UI),
         // fall back to the existing values from the books table.
         const [existingRows]: any = await mysqlPool.execute(
-            'SELECT author_id, category_id FROM books WHERE book_id = ? LIMIT 1',
+            'SELECT author_id, category_id, title AS old_title, isbn AS old_isbn FROM books WHERE book_id = ? LIMIT 1',
             [bookId]
         );
 
@@ -401,8 +422,9 @@ export const updateBookDetails = async (req: Request, res: Response): Promise<vo
             return;
         }
 
-        const finalAuthorId = authorId ?? existingRows[0].author_id;
-        const finalCategoryId = categoryId ?? existingRows[0].category_id;
+        const previousRow = existingRows[0];
+        const finalAuthorId = authorId ?? previousRow.author_id;
+        const finalCategoryId = categoryId ?? previousRow.category_id;
 
         await mysqlPool.execute('CALL update_book(?, ?, ?, ?, ?)', [
             bookId,
@@ -413,9 +435,20 @@ export const updateBookDetails = async (req: Request, res: Response): Promise<vo
         ]);
 
         const oldBook = await BookContent.findOne({ mysql_book_id: bookId });
+        let inventoryDiffSummary: any = null;
         if (oldBook) {
             const diff = totalCopies - oldBook.inventory.total_copies;
             const newAvailable = Math.max(0, oldBook.inventory.available_copies + diff);
+            inventoryDiffSummary = {
+                previous: {
+                    total_copies: oldBook.inventory.total_copies,
+                    available_copies: oldBook.inventory.available_copies
+                },
+                updated: {
+                    total_copies: totalCopies,
+                    available_copies: newAvailable
+                }
+            };
 
             await BookContent.findOneAndUpdate(
                 { mysql_book_id: bookId },
@@ -428,8 +461,21 @@ export const updateBookDetails = async (req: Request, res: Response): Promise<vo
             );
         }
 
-        // AUDIT LOG RESTORED HERE
-        await safeAuditLog(req, 'BOOK_UPDATE', 'BOOK', bookId, `Updated details for book #${bookId}: "${title}"`);
+        // AUDIT LOG RESTORED HERE - now with richer detail payload
+        await safeAuditLog(req, 'BOOK_UPDATE', 'BOOK', bookId, {
+            message: `Updated details for book #${bookId}`,
+            before: {
+                title: previousRow.old_title,
+                isbn: previousRow.old_isbn,
+                inventory: inventoryDiffSummary?.previous
+            },
+            after: {
+                title,
+                isbn,
+                inventory: inventoryDiffSummary?.updated,
+                synopsisLength: synopsis ? String(synopsis).length : 0
+            }
+        });
 
         res.status(200).json({ status: 'success', message: 'Book updated successfully.' });
     } catch (error: any) {

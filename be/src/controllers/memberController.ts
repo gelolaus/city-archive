@@ -328,6 +328,13 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
     const { status } = req.body; 
 
     try {
+        // Fetch previous status so we can capture before/after in the audit log
+        const [prevRows]: any = await mysqlPool.execute(
+            'SELECT is_active FROM members WHERE member_id = ? LIMIT 1',
+            [memberId]
+        );
+        const previous = prevRows[0] || { is_active: null };
+
         await mysqlPool.execute(
             'UPDATE members SET is_active = ? WHERE member_id = ?',
             [status ? 1 : 0, memberId]
@@ -336,13 +343,26 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
 
         try {
             const user = (req as any).user || { id: 999, username: 'System_Admin' };
+
+            const meta = {
+                ip: req.ip || (req.socket && req.socket.remoteAddress) || 'unknown',
+                method: req.method,
+                path: (req as any).originalUrl || req.url,
+                userAgent: req.headers['user-agent'] || 'Unknown UA'
+            };
+
             await AuditLog.create({
                 librarian_id: user.id || 999,
                 username: user.username || 'System_Admin',
                 action: status ? 'MEMBER_RESTORE' : 'MEMBER_ARCHIVE',
                 entity_type: 'MEMBER',
                 entity_id: String(memberId),
-                details: message
+                details: JSON.stringify({
+                    message,
+                    before: { is_active: previous.is_active },
+                    after: { is_active: status ? 1 : 0 },
+                    meta
+                })
             });
         } catch (auditErr) {
             console.error("Non-fatal Audit Error:", auditErr);
