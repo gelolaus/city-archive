@@ -236,3 +236,67 @@ export const getActiveLoansByMember = async (req: Request, res: Response): Promi
         res.status(500).json({ status: 'error', message: 'Failed to fetch active loans.' });
     }
 };
+
+// Add these to the bottom of bookController.ts
+export const getUnpaidFines = async (req: Request, res: Response): Promise<void> => {
+    try {
+        // Fetch all unpaid fines, joining members and books for human-readable context
+        const [rows]: any = await mysqlPool.execute(`
+            SELECT f.fine_id, f.amount, DATE_FORMAT(f.created_at, '%Y-%m-%d') as issued_date,
+                   l.loan_id, b.title, CONCAT(m.first_name, ' ', m.last_name) AS member_name, m.member_id
+            FROM fines f
+            JOIN loans l ON f.loan_id = l.loan_id
+            JOIN books b ON l.book_id = b.book_id
+            JOIN members m ON l.member_id = m.member_id
+            WHERE f.is_paid = FALSE
+            ORDER BY f.created_at DESC
+        `);
+        
+        res.status(200).json({ status: 'success', data: rows });
+    } catch (error: any) {
+        console.error('Fetch Fines Error:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch unpaid fines.' });
+    }
+};
+
+export const settleFine = async (req: Request, res: Response): Promise<void> => {
+    const fineId = Number(req.params.fineId);
+
+    try {
+        // 1. Fetch the exact loan/member details from MySQL before updating
+        const [fineDataRows]: any = await mysqlPool.execute(`
+            SELECT f.fine_id, l.member_id, l.book_id
+            FROM fines f JOIN loans l ON f.loan_id = l.loan_id
+            WHERE f.fine_id = ?
+        `, [fineId]);
+
+        if (fineDataRows.length === 0) {
+            res.status(404).json({ status: 'error', message: 'Fine not found.' }); return;
+        }
+        const fineData = fineDataRows[0];
+
+        // 2. Call the MySQL Payment Procedure
+        await mysqlPool.execute('CALL process_fine_payment(?)', [fineId]);
+
+        // 3. Log the financial action in the immutable MongoDB Transaction Ledger
+        const mongoBook = await BookContent.findOne({ mysql_book_id: fineData.book_id });
+        let memberProfile = await MemberProfile.findOne({ mysql_member_id: fineData.member_id });
+        
+        if (!memberProfile) {
+            memberProfile = await MemberProfile.create({ mysql_member_id: fineData.member_id });
+        }
+
+        if (mongoBook) {
+            await TransactionLedger.create({
+                mysql_fine_id: fineId,
+                action: 'FINE_PAID',
+                member_mongo_id: memberProfile._id,
+                book_mongo_id: mongoBook._id
+            });
+        }
+
+        res.status(200).json({ status: 'success', message: 'Fine settled and recorded in ledger.' });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+};

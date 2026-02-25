@@ -1,6 +1,6 @@
 import { Router } from 'express';
 // 1. Added addBook to the imports
-import { searchBooks, viewBookDetails, borrowBook, returnBook, addBook, getActiveLoansByMember } from '../controllers/bookController';
+import { searchBooks, viewBookDetails, borrowBook, returnBook, addBook, getActiveLoansByMember, getUnpaidFines, settleFine } from '../controllers/bookController';
 import { verifyToken } from '../middleware/auth';
 // 2. Imported the Bouncer (Zod validator) and the exact schema for creating books
 import { validateData, createBookSchema } from '../middleware/validators';
@@ -20,5 +20,7 @@ router.get('/:bookId', viewBookDetails);
 router.post('/borrow', verifyToken, borrowBook);
 router.post('/return/:loanId', verifyToken, returnBook);
 router.get('/loans/member/:memberId', getActiveLoansByMember);
+router.get('/fines/unpaid', verifyToken, getUnpaidFines);
+router.post('/fines/settle/:fineId', verifyToken, settleFine);
 
 export default router;

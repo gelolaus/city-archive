@@ -10,6 +10,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import BorrowBook from './pages/BorrowBook';
 import ReturnBook from './pages/ReturnBook';
+import FineSettlement from './pages/FineSettlement';
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
           <Route path="/admin/borrow" element={<BorrowBook />} />
           <Route path="/add-book" element={<AddBook />} />
           <Route path="/admin/return" element={<ReturnBook />} />
+          <Route path="/admin/fines" element={<FineSettlement />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />
